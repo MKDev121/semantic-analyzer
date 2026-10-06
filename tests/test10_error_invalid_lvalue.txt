@@ -1,0 +1,17 @@
+// Test 10: Semantic Errors - Invalid L-Values and Array Errors
+int helper() {
+    return 1;
+}
+
+int main() {
+    int arr[10];
+    int notArray = 5;
+
+    helper = 10;            // Error: Cannot assign to function 'helper'
+    arr = 20;               // Error: Cannot assign directly to entire array 'arr'
+    notArray[0] = 5;        // Error: Subscripted variable 'notArray' is not an array
+    arr[2.5] = 10;          // Error: Array subscript index must be of type 'int'
+    arr[true] = 10;         // Error: Array subscript index must be of type 'int'
+
+    return 0;
+}

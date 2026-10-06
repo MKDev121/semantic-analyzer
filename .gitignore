@@ -1,0 +1,18 @@
+# Build output and binaries
+build/
+*.o
+semantic_analyzer
+
+# Editor and IDE directories
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# Operating system artifacts
+.DS_Store
+Thumbs.db
+
+# Logs and scratch output
+*.log

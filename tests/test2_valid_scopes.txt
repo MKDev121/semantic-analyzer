@@ -1,0 +1,23 @@
+// Test 2: Valid Scopes & Shadowing
+int x = 100;
+
+int testScopes() {
+    int x = 10; // shadows global x
+    int y = 20;
+
+    {
+        int x = 1; // shadows outer x (value 1)
+        int z = x + y; // z = 1 + 20 = 21
+
+        {
+            int x = 500; // shadows x again (value 500)
+            int w = x + z;
+        }
+
+        // here x is 1 again
+        y = x + 5;
+    }
+
+    // here x is 10 again
+    return x + y;
+}

@@ -1,0 +1,28 @@
+// Test 1: Valid basic declarations, expressions, and statements
+int globalCount = 0;
+float pi = 3.14;
+bool active = true;
+
+int main() {
+    int a = 10;
+    int b = 20;
+    int c;
+    c = a + b * 2;
+
+    float r = 5.0;
+    float area = pi * r * r;
+
+    bool result = (a < b) && (c >= 50);
+
+    if (result) {
+        c = c + 1;
+    } else {
+        c = c - 1;
+    }
+
+    while (a > 0) {
+        a = a - 1;
+    }
+
+    return c;
+}

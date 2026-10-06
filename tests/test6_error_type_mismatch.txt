@@ -1,0 +1,16 @@
+// Test 6: Semantic Errors - Type Mismatches
+int main() {
+    int a = 10;
+    float f = 3.14;
+    bool flag = true;
+
+    a = flag;       // Error: Cannot assign 'bool' to variable 'a' of type 'int'
+    a = f;          // Error: Cannot assign 'float' to variable 'a' of type 'int'
+    int b = 3.5;    // Error: Cannot assign 'float' to variable 'b' of type 'int'
+
+    int sum = a + flag;   // Error: Arithmetic operator '+' requires numeric operands
+    int mod = a % 2.5;    // Error: Modulo operator '%' requires integer operands
+    bool eq = (a == flag);// Error: Cannot compare incompatible types 'int' and 'bool'
+
+    return 0;
+}

@@ -1,0 +1,16 @@
+// Test 8: Semantic Errors - Function Argument Validation
+int multiply(int a, int b) {
+    return a * b;
+}
+
+void configure(bool enabled, int timeout) {
+    return;
+}
+
+int main() {
+    multiply(10);               // Error: expects 2 arguments, got 1
+    multiply(1, 2, 3);          // Error: expects 2 arguments, got 3
+    configure(5.5, true);       // Error: Argument 1 expected bool, got float; Argument 2 expected int, got bool
+
+    return 0;
+}

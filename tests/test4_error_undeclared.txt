@@ -1,0 +1,7 @@
+// Test 4: Semantic Errors - Undeclared Identifiers
+int main() {
+    x = 10;                // Error: Undeclared identifier 'x' in assignment
+    int y = z + 5;         // Error: Undeclared identifier 'z' in expression
+    foo(1, 2);             // Error: Call to undeclared function 'foo'
+    return 0;
+}

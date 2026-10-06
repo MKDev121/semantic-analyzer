@@ -1,0 +1,27 @@
+// Test 3: Functions, parameters, forward calls, and arrays
+int add(int a, int b) {
+    return a + b;
+}
+
+float average(float sum, int count) {
+    return sum / count; // float / int widens to float
+}
+
+void printStatus(bool flag) {
+    if (flag) {
+        return;
+    }
+}
+
+int main() {
+    int arr[5];
+    arr[0] = 10;
+    arr[1] = 20;
+
+    int sum = add(arr[0], arr[1]);
+    float avg = average(sum, 2); // int sum can be passed where float is expected
+
+    printStatus(true);
+
+    return 0;
+}

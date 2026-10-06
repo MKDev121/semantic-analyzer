@@ -1,0 +1,16 @@
+// Test 9: Semantic Errors - Return Type Mismatch
+void doWork() {
+    return 42; // Error: Void function 'doWork' cannot return a value
+}
+
+int getValue() {
+    return;    // Error: Non-void function 'getValue' must return a value of type 'int'
+}
+
+int calculate() {
+    return 3.14; // Error: Return type mismatch: expected 'int', but got 'float'
+}
+
+float checkFlag() {
+    return true; // Error: Return type mismatch: expected 'float', but got 'bool'
+}

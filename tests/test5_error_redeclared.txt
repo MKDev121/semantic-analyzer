@@ -1,0 +1,13 @@
+// Test 5: Semantic Errors - Redeclared Identifiers
+int x = 10;
+int x = 20; // Error: Redeclaration of global variable 'x'
+
+int compute(int val, int val) { // Error: Duplicate parameter name 'val'
+    int count = 5;
+    int count = 10; // Error: Redeclaration of identifier 'count' in same scope
+    return count;
+}
+
+int compute(int a) { // Error: Redeclaration of function 'compute'
+    return a;
+}
