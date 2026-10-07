@@ -18,7 +18,9 @@ Thumbs.db
 *.log
 
 # Deferred implementation (local only)
-/later/
 /lexer_demo
 /lexer_demo.exe
 /semantic_analyzer.exe
+
+# # Future presentation components
+# /later/
