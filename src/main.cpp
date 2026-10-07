@@ -1,113 +1,125 @@
 #include "Lexer.hpp"
-#include "Parser.hpp"
-#include "SymbolTable.hpp"
-#include "SemanticAnalyzer.hpp"
-#include "ErrorReporter.hpp"
-#include <iostream>
+
 #include <fstream>
+#include <iomanip>
+#include <iostream>
 #include <sstream>
 #include <string>
 #include <vector>
 
-void printUsage(const char* prog) {
-    std::cout << "Usage: " << prog << " [options] <source-file>\n"
-              << "Options:\n"
-              << "  --dump-ast        Print the abstract syntax tree\n"
-              << "  --dump-typed-ast  Print the AST annotated with inferred types\n"
-              << "  --dump-symbols    Print the hierarchical symbol table\n"
-              << "  --all             Dump AST, Typed AST, and Symbol Table\n"
-              << "  -h, --help        Show this help message\n";
+using namespace std;
+
+void explainLexicalError(const Token& token, const vector<string>& lines) {
+    cout << "\n[ERROR] line " << token.line << ", col " << token.column << ": unrecognized character '" << token.text << "'\n";
+
+    if (token.line > 0 && static_cast<size_t>(token.line) <= lines.size()) {
+        const auto& line = lines[token.line - 1];
+        cout << "    " << line << "\n    ";
+
+        for (int col = 1; col < token.column; ++col) {
+            const size_t index = static_cast<size_t>(col - 1);
+            cout << (index < line.size() && line[index] == '\t' ? '\t' : ' ');
+        }
+
+        cout << "^\n";
+    }
+
+    cout << "Reason: '" << token.text << "' is not a supported token in this language.\n";
+
+    if (token.text == "&") {
+        cout << "Possible correction: Use '&&' if you intended logical AND.\n";
+    } else if (token.text == "|") {
+        cout << "Possible correction: Use '||' if you intended logical OR.\n";
+    } else {
+        cout << "Possible correction: Remove '" << token.text << "' if accidental, or replace it with the intended supported token.\n";
+    }
 }
 
 int main(int argc, char* argv[]) {
-    std::string filename = "";
-    bool dumpAST = false;
-    bool dumpTypedAST = false;
-    bool dumpSymbols = false;
-
-    for (int i = 1; i < argc; ++i) {
-        std::string arg = argv[i];
-        if (arg == "--dump-ast") {
-            dumpAST = true;
-        } else if (arg == "--dump-typed-ast") {
-            dumpTypedAST = true;
-        } else if (arg == "--dump-symbols") {
-            dumpSymbols = true;
-        } else if (arg == "--all") {
-            dumpAST = true;
-            dumpTypedAST = true;
-            dumpSymbols = true;
-        } else if (arg == "-h" || arg == "--help") {
-            printUsage(argv[0]);
-            return 0;
-        } else if (arg[0] == '-') {
-            std::cerr << "Unknown option: " << arg << "\n";
-            printUsage(argv[0]);
-            return 1;
-        } else {
-            filename = arg;
-        }
+    if (argc == 2 && (string(argv[1]) == "--help" || string(argv[1]) == "-h")) {
+        cout << "Usage: lexer_demo <source-file>\n";
+        cout << "Milestone 1: print tokens and their source positions.\n";
+        return 0;
     }
 
-    std::string source;
-    if (filename.empty()) {
-        std::cerr << "Reading from standard input (press Ctrl+D to finish):\n";
-        std::string line;
-        while (std::getline(std::cin, line)) {
-            source += line + "\n";
-        }
-    } else {
-        std::ifstream file(filename);
-        if (!file.is_open()) {
-            std::cerr << "Error: Could not open file '" << filename << "'\n";
-            return 1;
-        }
-        std::ostringstream ss;
-        ss << file.rdbuf();
-        source = ss.str();
-    }
-
-    ErrorReporter reporter;
-
-    // 1. Lexical Analysis
-    Lexer lexer(source);
-    std::vector<Token> tokens = lexer.tokenize();
-
-    // 2. Syntax Analysis (Parsing)
-    Parser parser(tokens, reporter);
-    auto ast = parser.parseProgram();
-
-    if (reporter.hasErrors()) {
-        std::cerr << "Syntax errors encountered during parsing:\n";
-        reporter.printReport(std::cerr);
+    if (argc != 2) {
+        cerr << "Usage: lexer_demo <source-file>\n";
         return 1;
     }
 
-    if (dumpAST && ast) {
-        std::cout << "\n============================== INITIAL AST ==============================\n";
-        ast->print(std::cout);
-        std::cout << "=========================================================================\n\n";
+    ifstream file(argv[1], ios::binary | ios::ate);
+
+    if (!file) {
+        cerr << "Could not open file: " << argv[1] << '\n';
+        return 1;
     }
 
-    // 3. Semantic Analysis
-    SymbolTable symbolTable;
-    SemanticAnalyzer analyzer(symbolTable, reporter);
-    if (ast) {
-        analyzer.analyze(ast.get());
+    const auto fileSize = file.tellg();
+
+    if (fileSize < 0) {
+        cerr << "Could not determine file size: " << argv[1] << '\n';
+        return 1;
     }
 
-    if (dumpTypedAST && ast) {
-        std::cout << "\n=============================== TYPED AST ===============================\n";
-        ast->print(std::cout);
-        std::cout << "=========================================================================\n\n";
+    file.seekg(0, ios::beg);
+
+    if (!file) {
+        cerr << "Could not seek to the beginning of file: " << argv[1] << '\n';
+        return 1;
     }
 
-    if (dumpSymbols) {
-        symbolTable.printHierarchy(std::cout);
+    string sourceText(static_cast<size_t>(fileSize), '\0');
+
+    if (!sourceText.empty() && !file.read(sourceText.data(), static_cast<streamsize>(sourceText.size()))) {
+        cerr << "Could not read file: " << argv[1] << '\n';
+        cerr << "Expected " << sourceText.size() << " bytes, read " << file.gcount() << ".\n";
+        return 1;
     }
 
-    // 4. Output diagnostics
-    reporter.printReport(std::cout);
+    vector<string> lines;
+    istringstream sourceLines(sourceText);
+    string line;
 
-    return reporter.hasErrors() ? 1 : 0;
+    while (getline(sourceLines, line)) {
+        if (!line.empty() && line.back() == '\r') {
+            line.pop_back();
+        }
+
+        lines.push_back(line);
+    }
+
+    Lexer lexer(sourceText);
+    const auto tokens = lexer.tokenize();
+
+    cout << "Milestone 1: Lexical analysis\n";
+    cout << "Input: " << argv[1] << '\n';
+    cout << "Bytes read: " << sourceText.size() << '\n';
+
+    if (sourceText.empty()) {
+        cout << "[NOTICE] The input file is empty; only EOF will be shown.\n";
+        cout << "Save source code in this file, then run the command again.\n";
+    } else if (tokens.size() == 1) {
+        cout << "[NOTICE] No tokens were produced after skipping whitespace and comments.\n";
+    }
+
+    cout << left << setw(8) << "Line" << setw(8) << "Column" << setw(20) << "Token" << "Lexeme\n";
+
+    int errors = 0;
+
+    for (const auto& token : tokens) {
+        cout << left << setw(8) << token.line << setw(8) << token.column << setw(20) << Token::typeName(token.type) << (token.type == TokenType::TOK_EOF ? "<end>" : token.text) << '\n';
+    }
+
+    for (const auto& token : tokens) {
+        if (token.type == TokenType::TOK_UNKNOWN) {
+            ++errors;
+            explainLexicalError(token, lines);
+        }
+    }
+
+    cout << "\nTokens (excluding EOF): " << tokens.size() - 1 << '\n';
+    cout << "Lexical errors: " << errors << '\n';
+    cout << "Parsing and semantic analysis are deferred to later milestones.\n";
+
+    return errors == 0 ? 0 : 1;
 }

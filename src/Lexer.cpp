@@ -1,8 +1,12 @@
 #include "Lexer.hpp"
+
 #include <cctype>
 #include <unordered_map>
+#include <utility>
 
-static const std::unordered_map<std::string, TokenType> keywords = {
+using namespace std;
+
+static const unordered_map<string, TokenType> keywords = {
     {"int", TokenType::KEYWORD_INT},
     {"float", TokenType::KEYWORD_FLOAT},
     {"bool", TokenType::KEYWORD_BOOL},
@@ -16,20 +20,27 @@ static const std::unordered_map<std::string, TokenType> keywords = {
     {"false", TokenType::KEYWORD_FALSE}
 };
 
-Lexer::Lexer(std::string source) : src(std::move(source)) {}
+Lexer::Lexer(string source) : src(move(source)) {
+}
 
 char Lexer::peek() const {
-    if (isAtEnd()) return '\0';
+    if (isAtEnd()) {
+        return '\0';
+    }
     return src[index];
 }
 
 char Lexer::peekNext() const {
-    if (index + 1 >= src.size()) return '\0';
+    if (index + 1 >= src.size()) {
+        return '\0';
+    }
     return src[index + 1];
 }
 
 char Lexer::advance() {
-    if (isAtEnd()) return '\0';
+    if (isAtEnd()) {
+        return '\0';
+    }
     char c = src[index++];
     if (c == '\n') {
         line++;
@@ -41,7 +52,9 @@ char Lexer::advance() {
 }
 
 bool Lexer::match(char expected) {
-    if (isAtEnd() || src[index] != expected) return false;
+    if (isAtEnd() || src[index] != expected) {
+        return false;
+    }
     advance();
     return true;
 }
@@ -78,13 +91,13 @@ void Lexer::skipWhitespaceAndComments() {
     }
 }
 
-Token Lexer::makeToken(TokenType type, const std::string& text, int startCol) {
+Token Lexer::makeToken(TokenType type, const string& text, int startCol) {
     return Token(type, text, line, startCol);
 }
 
 Token Lexer::identifierOrKeyword(int startCol) {
-    std::string text;
-    while (!isAtEnd() && (std::isalnum(peek()) || peek() == '_')) {
+    string text;
+    while (!isAtEnd() && (isalnum(peek()) || peek() == '_')) {
         text += advance();
     }
     auto it = keywords.find(text);
@@ -95,17 +108,17 @@ Token Lexer::identifierOrKeyword(int startCol) {
 }
 
 Token Lexer::number(int startCol) {
-    std::string text;
+    string text;
     bool isFloat = false;
 
-    while (!isAtEnd() && std::isdigit(peek())) {
+    while (!isAtEnd() && isdigit(peek())) {
         text += advance();
     }
 
-    if (peek() == '.' && std::isdigit(peekNext())) {
+    if (peek() == '.' && isdigit(peekNext())) {
         isFloat = true;
         text += advance(); // consume '.'
-        while (!isAtEnd() && std::isdigit(peek())) {
+        while (!isAtEnd() && isdigit(peek())) {
             text += advance();
         }
     }
@@ -115,10 +128,12 @@ Token Lexer::number(int startCol) {
 
 Token Lexer::character(int startCol) {
     advance(); // consume opening quote '\''
-    std::string text;
+    string text;
     if (peek() == '\\') {
         text += advance();
-        if (!isAtEnd()) text += advance();
+        if (!isAtEnd()) {
+            text += advance();
+        }
     } else if (!isAtEnd() && peek() != '\'') {
         text += advance();
     }
@@ -138,11 +153,11 @@ Token Lexer::nextToken() {
     int startCol = column;
     char c = peek();
 
-    if (std::isalpha(c) || c == '_') {
+    if (isalpha(c) || c == '_') {
         return identifierOrKeyword(startCol);
     }
 
-    if (std::isdigit(c)) {
+    if (isdigit(c)) {
         return number(startCol);
     }
 
@@ -153,48 +168,75 @@ Token Lexer::nextToken() {
     // Operators and delimiters
     advance();
     switch (c) {
-        case '+': return Token(TokenType::PLUS, "+", line, startCol);
-        case '-': return Token(TokenType::MINUS, "-", line, startCol);
-        case '*': return Token(TokenType::STAR, "*", line, startCol);
-        case '/': return Token(TokenType::SLASH, "/", line, startCol);
-        case '%': return Token(TokenType::PERCENT, "%", line, startCol);
-        case ';': return Token(TokenType::SEMICOLON, ";", line, startCol);
-        case ',': return Token(TokenType::COMMA, ",", line, startCol);
-        case '(': return Token(TokenType::LPAREN, "(", line, startCol);
-        case ')': return Token(TokenType::RPAREN, ")", line, startCol);
-        case '{': return Token(TokenType::LBRACE, "{", line, startCol);
-        case '}': return Token(TokenType::RBRACE, "}", line, startCol);
-        case '[': return Token(TokenType::LBRACKET, "[", line, startCol);
-        case ']': return Token(TokenType::RBRACKET, "]", line, startCol);
+        case '+':
+            return Token(TokenType::PLUS, "+", line, startCol);
+        case '-':
+            return Token(TokenType::MINUS, "-", line, startCol);
+        case '*':
+            return Token(TokenType::STAR, "*", line, startCol);
+        case '/':
+            return Token(TokenType::SLASH, "/", line, startCol);
+        case '%':
+            return Token(TokenType::PERCENT, "%", line, startCol);
+        case ';':
+            return Token(TokenType::SEMICOLON, ";", line, startCol);
+        case ',':
+            return Token(TokenType::COMMA, ",", line, startCol);
+        case '(':
+            return Token(TokenType::LPAREN, "(", line, startCol);
+        case ')':
+            return Token(TokenType::RPAREN, ")", line, startCol);
+        case '{':
+            return Token(TokenType::LBRACE, "{", line, startCol);
+        case '}':
+            return Token(TokenType::RBRACE, "}", line, startCol);
+        case '[':
+            return Token(TokenType::LBRACKET, "[", line, startCol);
+        case ']':
+            return Token(TokenType::RBRACKET, "]", line, startCol);
         case '=':
-            if (match('=')) return Token(TokenType::EQ, "==", line, startCol);
+            if (match('=')) {
+                return Token(TokenType::EQ, "==", line, startCol);
+            }
             return Token(TokenType::ASSIGN, "=", line, startCol);
         case '!':
-            if (match('=')) return Token(TokenType::NEQ, "!=", line, startCol);
+            if (match('=')) {
+                return Token(TokenType::NEQ, "!=", line, startCol);
+            }
             return Token(TokenType::NOT, "!", line, startCol);
         case '<':
-            if (match('=')) return Token(TokenType::LE, "<=", line, startCol);
+            if (match('=')) {
+                return Token(TokenType::LE, "<=", line, startCol);
+            }
             return Token(TokenType::LT, "<", line, startCol);
         case '>':
-            if (match('=')) return Token(TokenType::GE, ">=", line, startCol);
+            if (match('=')) {
+                return Token(TokenType::GE, ">=", line, startCol);
+            }
             return Token(TokenType::GT, ">", line, startCol);
         case '&':
-            if (match('&')) return Token(TokenType::AND, "&&", line, startCol);
+            if (match('&')) {
+                return Token(TokenType::AND, "&&", line, startCol);
+            }
             return Token(TokenType::TOK_UNKNOWN, "&", line, startCol);
         case '|':
-            if (match('|')) return Token(TokenType::OR, "||", line, startCol);
+            if (match('|')) {
+                return Token(TokenType::OR, "||", line, startCol);
+            }
             return Token(TokenType::TOK_UNKNOWN, "|", line, startCol);
         default:
-            return Token(TokenType::TOK_UNKNOWN, std::string(1, c), line, startCol);
+            return Token(TokenType::TOK_UNKNOWN, string(1, c), line, startCol);
     }
 }
 
-std::vector<Token> Lexer::tokenize() {
-    std::vector<Token> tokens;
+vector<Token> Lexer::tokenize() {
+    vector<Token> tokens;
     while (true) {
         Token tok = nextToken();
         tokens.push_back(tok);
-        if (tok.type == TokenType::TOK_EOF) break;
+        if (tok.type == TokenType::TOK_EOF) {
+            break;
+        }
     }
     return tokens;
 }

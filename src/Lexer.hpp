@@ -1,6 +1,8 @@
 #pragma once
 
 #include "Token.hpp"
+
+#include <cstddef>
 #include <string>
 #include <vector>
 
@@ -13,7 +15,7 @@ public:
 
 private:
     std::string src;
-    size_t index = 0;
+    std::size_t index = 0;
     int line = 1;
     int column = 1;
 
