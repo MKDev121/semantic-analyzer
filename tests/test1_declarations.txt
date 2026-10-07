@@ -1,0 +1,4 @@
+int count = 10;
+float price = 2.5;
+bool ready = true;
+char grade = 'A';
