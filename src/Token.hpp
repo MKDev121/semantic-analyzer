@@ -3,7 +3,8 @@
 #include <string>
 #include <utility>
 
-enum class TokenType {
+
+enum class TokenType {      //Enum class requires an explicit conversion to an integer. Names stay inside their enum class strictly.
     // Keywords
     KEYWORD_INT,
     KEYWORD_FLOAT,
@@ -57,21 +58,22 @@ enum class TokenType {
 };
 
 struct Token {
-    TokenType type;
-    std::string text;
-    int line;
-    int column;
+    TokenType type; //Token category   
+    std::string text;   //text from input
+    int line;           //line number
+    int column;         //starting column on that line
 
-    Token(TokenType type = TokenType::TOK_EOF, std::string text = "", int line = 1, int column = 1)
-        : type(type),
-          text(std::move(text)),
-          line(line),
-          column(column) {
+    Token(TokenType type = TokenType::TOK_EOF, std::string text = "", int line = 1, int column = 1)    //Default Parameters
+    {
+        this->type = type;
+        this->text = std::move(text); //Steals the pointer to the string in memory.
+        this->line = line;
+        this->column = column;
     }
 
     static std::string typeName(TokenType t) {
         switch (t) {
-            case TokenType::KEYWORD_INT:
+            case TokenType::KEYWORD_INT: //Switch case for token and printing it.
                 return "KEYWORD_INT";
             case TokenType::KEYWORD_FLOAT:
                 return "KEYWORD_FLOAT";
@@ -153,7 +155,8 @@ struct Token {
                 return "EOF";
             case TokenType::TOK_UNKNOWN:
                 return "UNKNOWN";
+            default:
+                return "UNKNOWN";
         }
-        return "UNKNOWN";
     }
 };
