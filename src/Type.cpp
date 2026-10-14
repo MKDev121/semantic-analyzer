@@ -1,5 +1,6 @@
 #include "Type.hpp"
 #include <sstream>
+#include <utility>
 
 Type::Type(TypeKind kind) : kind(kind), arraySize(0) {}
 

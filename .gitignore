@@ -17,10 +17,8 @@ Thumbs.db
 # Logs and scratch output
 *.log
 
-# Deferred implementation (local only)
+# Legacy manual-build binaries
 /lexer_demo
 /lexer_demo.exe
 /semantic_analyzer.exe
-
-# # Future presentation components
-# /later/
+docs/

@@ -79,7 +79,6 @@ void CallExprNode::print(std::ostream& out, int indent) const {
 void VarDeclNode::print(std::ostream& out, int indent) const {
     printIndent(out, indent);
     out << "VarDecl(" << (declaredType ? declaredType->toString() : "unknown") << " " << varName;
-    if (isArray) out << "[" << arraySize << "]";
     out << ")\n";
     if (initExpr) {
         initExpr->print(out, indent + 1);
