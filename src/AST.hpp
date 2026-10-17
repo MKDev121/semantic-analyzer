@@ -60,18 +60,6 @@ public:
     void print(std::ostream& out, int indent = 0) const override;
 };
 
-class ArrayAccessExprNode : public ExprNode {
-public:
-    std::string name;
-    std::unique_ptr<ExprNode> indexExpr;
-
-    ArrayAccessExprNode(int line, int col, std::string name, std::unique_ptr<ExprNode> indexExpr)
-        : ExprNode(line, col), name(std::move(name)), indexExpr(std::move(indexExpr)) {}
-
-    void accept(ASTVisitor* visitor) override;
-    void print(std::ostream& out, int indent = 0) const override;
-};
-
 class BinaryExprNode : public ExprNode {
 public:
     TokenType op;
@@ -120,14 +108,10 @@ public:
     TypePtr declaredType;
     std::string varName;
     std::unique_ptr<ExprNode> initExpr;
-    bool isArray;
-    int arraySize;
-
     VarDeclNode(int line, int col, TypePtr declaredType, std::string varName,
-                std::unique_ptr<ExprNode> initExpr = nullptr, bool isArray = false, int arraySize = 0)
+                std::unique_ptr<ExprNode> initExpr = nullptr)
         : StmtNode(line, col), declaredType(std::move(declaredType)),
-          varName(std::move(varName)), initExpr(std::move(initExpr)),
-          isArray(isArray), arraySize(arraySize) {}
+          varName(std::move(varName)), initExpr(std::move(initExpr)) {}
 
     void accept(ASTVisitor* visitor) override;
     void print(std::ostream& out, int indent = 0) const override;
@@ -136,13 +120,12 @@ public:
 class AssignStmtNode : public StmtNode {
 public:
     std::string varName;
-    std::unique_ptr<ExprNode> indexExpr; // nullptr if simple variable
     std::unique_ptr<ExprNode> rhs;
 
     AssignStmtNode(int line, int col, std::string varName,
-                   std::unique_ptr<ExprNode> indexExpr, std::unique_ptr<ExprNode> rhs)
+                   std::unique_ptr<ExprNode> rhs)
         : StmtNode(line, col), varName(std::move(varName)),
-          indexExpr(std::move(indexExpr)), rhs(std::move(rhs)) {}
+          rhs(std::move(rhs)) {}
 
     void accept(ASTVisitor* visitor) override;
     void print(std::ostream& out, int indent = 0) const override;
@@ -264,7 +247,6 @@ public:
     virtual void visit(ExprStmtNode* node) = 0;
     virtual void visit(LiteralExprNode* node) = 0;
     virtual void visit(VariableExprNode* node) = 0;
-    virtual void visit(ArrayAccessExprNode* node) = 0;
     virtual void visit(BinaryExprNode* node) = 0;
     virtual void visit(UnaryExprNode* node) = 0;
     virtual void visit(CallExprNode* node) = 0;

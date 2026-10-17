@@ -1,31 +1,5 @@
 #include "SemanticAnalyzer.hpp"
 
-namespace {
-
-bool hasVoidElementType(const TypePtr& type) {
-    return type && (type->isVoid() ||
-        (type->isArray() && hasVoidElementType(type->elementType)));
-}
-
-// A loop can execute zero times. Only explicit returns and both branches of an
-// if/else establish a guaranteed return without reasoning about runtime values.
-bool guaranteesReturn(const StmtNode* statement) {
-    if (!statement) return false;
-    if (dynamic_cast<const ReturnStmtNode*>(statement)) return true;
-
-    if (const auto* block = dynamic_cast<const BlockNode*>(statement)) {
-        for (const auto& child : block->statements) {
-            if (guaranteesReturn(child.get())) return true;
-        }
-    } else if (const auto* conditional = dynamic_cast<const IfStmtNode*>(statement)) {
-        return guaranteesReturn(conditional->thenBranch.get()) &&
-               guaranteesReturn(conditional->elseBranch.get());
-    }
-    return false;
-}
-
-} // namespace
-
 SemanticAnalyzer::SemanticAnalyzer(SymbolTable& symbolTable, ErrorReporter& reporter)
     : symTab(symbolTable), reporter(reporter) {}
 
@@ -34,47 +8,43 @@ void SemanticAnalyzer::analyze(ProgramNode* program) {
 
     symTab.reset();
 
-    // Pass 1: Register top-level function signatures and global variables
-    registerTopLevelDeclarations(program);
-
-    // Pass 2: Full semantic analysis of expressions and function bodies
-    isDeclarationPass = false;
-    program->accept(this);
+    // Register and check declarations in source order. Each function can call
+    // itself or earlier definitions. Forward registration belongs to later/.
+    for (const auto& declaration : program->declarations) {
+        registerTopLevelDeclaration(declaration.get());
+        declaration->accept(this);
+    }
 }
 
-void SemanticAnalyzer::registerTopLevelDeclarations(ProgramNode* program) {
-    isDeclarationPass = true;
-    for (const auto& decl : program->declarations) {
-        if (auto funcDecl = dynamic_cast<FunctionDeclNode*>(decl.get())) {
-            std::vector<TypePtr> paramTypes;
-            for (const auto& p : funcDecl->params) {
-                if (hasVoidElementType(p.type)) {
-                    reporter.reportError(p.line, p.column, "Parameter '" + p.name + "' cannot have type 'void'",
-                        "Use a value type such as int, float, bool, or char for this parameter.");
-                    paramTypes.push_back(Type::getError());
-                } else {
-                    paramTypes.push_back(p.type);
-                }
+void SemanticAnalyzer::registerTopLevelDeclaration(ASTNode* declaration) {
+    if (auto funcDecl = dynamic_cast<FunctionDeclNode*>(declaration)) {
+        std::vector<TypePtr> paramTypes;
+        for (const auto& p : funcDecl->params) {
+            if (p.type->isVoid()) {
+                reporter.reportError(p.line, p.column, "Parameter '" + p.name + "' cannot have type 'void'");
+                paramTypes.push_back(Type::getError());
+            } else {
+                paramTypes.push_back(p.type);
             }
-            TypePtr funcType = Type::makeFunction(funcDecl->returnType, paramTypes);
-            Symbol sym(funcDecl->name, funcType, SymbolKind::FUNCTION, 0, funcDecl->line, funcDecl->column, true);
-            if (!symTab.declare(sym)) {
-                Symbol* prev = symTab.lookupCurrentScope(funcDecl->name);
-                int prevLine = prev ? prev->line : 0;
-                reporter.reportError(funcDecl->line, funcDecl->column,
-                    "Redeclaration of function '" + funcDecl->name + "' (previously declared at line " + std::to_string(prevLine) + ")");
-            }
-        } else if (auto varDecl = dynamic_cast<VarDeclNode*>(decl.get())) {
-            // Variable type validation is shared with local declarations in pass 2.
-            TypePtr symbolType = hasVoidElementType(varDecl->declaredType)
-                ? Type::getError() : varDecl->declaredType;
-            Symbol sym(varDecl->varName, symbolType, SymbolKind::VARIABLE, 0, varDecl->line, varDecl->column, varDecl->initExpr != nullptr);
-            if (!symTab.declare(sym)) {
-                Symbol* prev = symTab.lookupCurrentScope(varDecl->varName);
-                int prevLine = prev ? prev->line : 0;
-                reporter.reportError(varDecl->line, varDecl->column,
-                    "Redeclaration of global variable '" + varDecl->varName + "' (previously declared at line " + std::to_string(prevLine) + ")");
-            }
+        }
+        TypePtr funcType = Type::makeFunction(funcDecl->returnType, paramTypes);
+        Symbol sym(funcDecl->name, funcType, SymbolKind::FUNCTION, 0, funcDecl->line, funcDecl->column, true);
+        if (!symTab.declare(sym)) {
+            Symbol* prev = symTab.lookupCurrentScope(funcDecl->name);
+            int prevLine = prev ? prev->line : 0;
+            reporter.reportError(funcDecl->line, funcDecl->column,
+                "Redeclaration of function '" + funcDecl->name + "' (previously declared at line " + std::to_string(prevLine) + ")");
+        }
+    } else if (auto varDecl = dynamic_cast<VarDeclNode*>(declaration)) {
+        // Global types are validated when their declarations are visited.
+        TypePtr symbolType = varDecl->declaredType->isVoid()
+            ? Type::getError() : varDecl->declaredType;
+        Symbol sym(varDecl->varName, symbolType, SymbolKind::VARIABLE, 0, varDecl->line, varDecl->column, varDecl->initExpr != nullptr);
+        if (!symTab.declare(sym)) {
+            Symbol* prev = symTab.lookupCurrentScope(varDecl->varName);
+            int prevLine = prev ? prev->line : 0;
+            reporter.reportError(varDecl->line, varDecl->column,
+                "Redeclaration of global variable '" + varDecl->varName + "' (previously declared at line " + std::to_string(prevLine) + ")");
         }
     }
 }
@@ -86,16 +56,10 @@ void SemanticAnalyzer::visit(ProgramNode* node) {
 }
 
 void SemanticAnalyzer::visit(VarDeclNode* node) {
-    if (isDeclarationPass) return; // Handled in Pass 1 for globals
-
-    // Validate global and local types once, including array element types.
-    const bool invalidType = hasVoidElementType(node->declaredType);
+    const bool invalidType = node->declaredType->isVoid();
     if (invalidType) {
-        const std::string message = node->declaredType->isArray()
-            ? "Array '" + node->varName + "' cannot have element type 'void'"
-            : "Variable '" + node->varName + "' cannot be declared with type 'void'";
         reporter.reportError(node->line, node->column,
-            message, "Use int, float, bool, or char as the variable or array element type.");
+            "Variable '" + node->varName + "' cannot be declared with type 'void'");
     }
 
     // If inside a function or local block, declare in current scope
@@ -119,8 +83,7 @@ void SemanticAnalyzer::visit(VarDeclNode* node) {
             reporter.reportError(node->line, node->column,
                 "Type mismatch in variable initialization: cannot assign '" +
                 node->initExpr->inferredType->toString() + "' to variable '" +
-                node->varName + "' of type '" + node->declaredType->toString() + "'",
-                "Use an initializer of type '" + node->declaredType->toString() + "' or change the declared type to match the value.");
+                node->varName + "' of type '" + node->declaredType->toString() + "'");
         }
     }
 }
@@ -131,8 +94,6 @@ void SemanticAnalyzer::visit(ParamNode* node) {
 }
 
 void SemanticAnalyzer::visit(FunctionDeclNode* node) {
-    if (isDeclarationPass) return;
-
     symTab.enterScope("Function " + node->name);
     inFunction = true;
     currentFunctionName = node->name;
@@ -141,7 +102,7 @@ void SemanticAnalyzer::visit(FunctionDeclNode* node) {
     // Register parameters in the function scope
     for (const auto& p : node->params) {
         // Invalid parameter types were diagnosed when signatures were collected.
-        TypePtr parameterType = hasVoidElementType(p.type) ? Type::getError() : p.type;
+        TypePtr parameterType = p.type->isVoid() ? Type::getError() : p.type;
         Symbol sym(p.name, parameterType, SymbolKind::PARAMETER, symTab.getCurrentLevel(), p.line, p.column, true);
         if (!symTab.declare(sym)) {
             reporter.reportError(p.line, p.column,
@@ -154,14 +115,6 @@ void SemanticAnalyzer::visit(FunctionDeclNode* node) {
         for (const auto& stmt : node->body->statements) {
             stmt->accept(this);
         }
-    }
-
-    if (!node->returnType->isVoid() && !node->returnType->isError() &&
-        !guaranteesReturn(node->body.get())) {
-        reporter.reportError(node->line, node->column,
-            "Non-void function '" + node->name + "' may reach the end without returning a value of type '" +
-            node->returnType->toString() + "'",
-            "Return a compatible value on every path, including an else branch or a return after the conditional or loop.");
     }
 
     inFunction = false;
@@ -182,15 +135,11 @@ void SemanticAnalyzer::visit(AssignStmtNode* node) {
     if (node->rhs) {
         node->rhs->accept(this);
     }
-    if (node->indexExpr) {
-        node->indexExpr->accept(this);
-    }
 
     Symbol* sym = symTab.lookup(node->varName);
     if (!sym) {
         reporter.reportError(node->line, node->column,
-            "Undeclared identifier '" + node->varName + "' in assignment statement",
-            "Declare '" + node->varName + "' in this scope or an enclosing scope before assigning to it.");
+            "Undeclared identifier '" + node->varName + "' in assignment statement");
         return;
     }
 
@@ -198,46 +147,14 @@ void SemanticAnalyzer::visit(AssignStmtNode* node) {
 
     if (sym->kind == SymbolKind::FUNCTION) {
         reporter.reportError(node->line, node->column,
-            "Cannot assign to function '" + node->varName + "' (not a modifiable l-value)",
-            "Assign to a variable or an array element instead of a function name.");
+            "Cannot assign to function '" + node->varName + "' (not a modifiable l-value)");
         return;
     }
 
-    if (node->indexExpr == nullptr) {
-        // Simple variable assignment
-        if (sym->type->isArray()) {
-            reporter.reportError(node->line, node->column,
-                "Cannot assign directly to entire array '" + node->varName + "' of type '" + sym->type->toString() + "'",
-                "Assign values to individual elements using an integer subscript.");
-            return;
-        }
-
-        if (node->rhs && !node->rhs->inferredType->isError() && !node->rhs->inferredType->isAssignableTo(*sym->type)) {
-            reporter.reportError(node->line, node->column,
-                "Type mismatch in assignment: cannot assign '" + node->rhs->inferredType->toString() +
-                "' to variable '" + node->varName + "' of type '" + sym->type->toString() + "'",
-                "Assign a value compatible with '" + sym->type->toString() + "'; only int-to-float widening is implicit.");
-        }
-    } else {
-        // Array subscript assignment: arr[idx] = rhs
-        if (!sym->type->isArray()) {
-            reporter.reportError(node->line, node->column,
-                "Subscripted variable '" + node->varName + "' is not an array (type is '" + sym->type->toString() + "')");
-            return;
-        }
-
-        if (!node->indexExpr->inferredType->isError() && !node->indexExpr->inferredType->isInteger()) {
-            reporter.reportError(node->indexExpr->line, node->indexExpr->column,
-                "Array subscript index must be of type 'int', got '" + node->indexExpr->inferredType->toString() + "'",
-                "Use an integer expression for the array index.");
-        }
-
-        if (node->rhs && !node->rhs->inferredType->isError() && !node->rhs->inferredType->isAssignableTo(*sym->type->elementType)) {
-            reporter.reportError(node->line, node->column,
-                "Type mismatch in array assignment: cannot assign '" + node->rhs->inferredType->toString() +
-                "' to element of type '" + sym->type->elementType->toString() + "'",
-                "Assign a value compatible with the array element type '" + sym->type->elementType->toString() + "'.");
-        }
+    if (node->rhs && !node->rhs->inferredType->isError() && !node->rhs->inferredType->isAssignableTo(*sym->type)) {
+        reporter.reportError(node->line, node->column,
+            "Type mismatch in assignment: cannot assign '" + node->rhs->inferredType->toString() +
+            "' to variable '" + node->varName + "' of type '" + sym->type->toString() + "'");
     }
 }
 
@@ -246,8 +163,7 @@ void SemanticAnalyzer::visit(IfStmtNode* node) {
         node->condition->accept(this);
         if (!node->condition->inferredType->isError() && !node->condition->inferredType->isBoolean()) {
             reporter.reportError(node->condition->line, node->condition->column,
-                "Condition in 'if' statement must evaluate to 'bool', got '" + node->condition->inferredType->toString() + "'",
-                "Use a Boolean value or a comparison such as value != 0.");
+                "Condition in 'if' statement must evaluate to 'bool', got '" + node->condition->inferredType->toString() + "'");
         }
     }
     if (node->thenBranch) node->thenBranch->accept(this);
@@ -259,8 +175,7 @@ void SemanticAnalyzer::visit(WhileStmtNode* node) {
         node->condition->accept(this);
         if (!node->condition->inferredType->isError() && !node->condition->inferredType->isBoolean()) {
             reporter.reportError(node->condition->line, node->condition->column,
-                "Condition in 'while' statement must evaluate to 'bool', got '" + node->condition->inferredType->toString() + "'",
-                "Use a Boolean value or a comparison such as value != 0.");
+                "Condition in 'while' statement must evaluate to 'bool', got '" + node->condition->inferredType->toString() + "'");
         }
     }
     if (node->body) node->body->accept(this);
@@ -278,21 +193,18 @@ void SemanticAnalyzer::visit(ReturnStmtNode* node) {
         if (!node->value->inferredType->isError()) {
             if (currentFunctionReturnType->isVoid()) {
                 reporter.reportError(node->line, node->column,
-                    "Void function '" + currentFunctionName + "' cannot return a value",
-                    "Use return; or change the function's declared return type to match the value.");
+                    "Void function '" + currentFunctionName + "' cannot return a value");
             } else if (!node->value->inferredType->isAssignableTo(*currentFunctionReturnType)) {
                 reporter.reportError(node->line, node->column,
                     "Return type mismatch: function '" + currentFunctionName + "' expects return type '" +
-                    currentFunctionReturnType->toString() + "', but got '" + node->value->inferredType->toString() + "'",
-                    "Return a value compatible with '" + currentFunctionReturnType->toString() + "' or change the function's declared return type.");
+                    currentFunctionReturnType->toString() + "', but got '" + node->value->inferredType->toString() + "'");
             }
         }
     } else {
         if (!currentFunctionReturnType->isVoid()) {
             reporter.reportError(node->line, node->column,
                 "Non-void function '" + currentFunctionName + "' must return a value of type '" +
-                currentFunctionReturnType->toString() + "'",
-                "Supply a compatible expression after return.");
+                currentFunctionReturnType->toString() + "'");
         }
     }
 }
@@ -312,8 +224,7 @@ void SemanticAnalyzer::visit(VariableExprNode* node) {
     Symbol* sym = symTab.lookup(node->name);
     if (!sym) {
         reporter.reportError(node->line, node->column,
-            "Undeclared identifier '" + node->name + "'",
-            "Declare '" + node->name + "' in this scope or an enclosing scope before using it.");
+            "Undeclared identifier '" + node->name + "'");
         node->inferredType = Type::getError();
         return;
     }
@@ -326,48 +237,6 @@ void SemanticAnalyzer::visit(VariableExprNode* node) {
     }
 
     node->inferredType = sym->type;
-}
-
-void SemanticAnalyzer::visit(ArrayAccessExprNode* node) {
-    // Visit independent subexpressions even when the array name is invalid.
-    if (node->indexExpr) node->indexExpr->accept(this);
-
-    Symbol* sym = symTab.lookup(node->name);
-    if (!sym) {
-        reporter.reportError(node->line, node->column,
-            "Undeclared identifier '" + node->name + "'",
-            "Declare the array in this scope or an enclosing scope before using it.");
-        node->inferredType = Type::getError();
-        return;
-    }
-
-    if (sym->type->isError()) {
-        node->inferredType = Type::getError();
-        return;
-    }
-
-    if (!sym->type->isArray()) {
-        reporter.reportError(node->line, node->column,
-            "Subscripted value '" + node->name + "' is not an array (type is '" + sym->type->toString() + "')");
-        node->inferredType = Type::getError();
-        return;
-    }
-
-    if (node->indexExpr) {
-        if (node->indexExpr->inferredType->isError()) {
-            node->inferredType = Type::getError();
-            return;
-        }
-        if (!node->indexExpr->inferredType->isInteger()) {
-            reporter.reportError(node->indexExpr->line, node->indexExpr->column,
-                "Array subscript index must be of type 'int', got '" + node->indexExpr->inferredType->toString() + "'",
-                "Use an integer expression for the array index.");
-            node->inferredType = Type::getError();
-            return;
-        }
-    }
-
-    node->inferredType = sym->type->elementType;
 }
 
 void SemanticAnalyzer::visit(BinaryExprNode* node) {
@@ -507,8 +376,7 @@ void SemanticAnalyzer::visit(CallExprNode* node) {
     Symbol* sym = symTab.lookup(node->callee);
     if (!sym) {
         reporter.reportError(node->line, node->column,
-            "Call to undeclared function '" + node->callee + "'",
-            "Define '" + node->callee + "' as a top-level function; its definition may appear later in the file.");
+            "Call to undeclared function '" + node->callee + "'");
         node->inferredType = Type::getError();
         return;
     }
@@ -529,8 +397,7 @@ void SemanticAnalyzer::visit(CallExprNode* node) {
     if (node->args.size() != expectedParams.size()) {
         reporter.reportError(node->line, node->column,
             "Function '" + node->callee + "' expects " + std::to_string(expectedParams.size()) +
-            " arguments, but " + std::to_string(node->args.size()) + " were provided",
-            "Pass exactly " + std::to_string(expectedParams.size()) + " arguments in the order declared by the function.");
+            " arguments, but " + std::to_string(node->args.size()) + " were provided");
         node->inferredType = Type::getError();
         return;
     }
@@ -546,8 +413,7 @@ void SemanticAnalyzer::visit(CallExprNode* node) {
         if (!argT->isAssignableTo(*paramT)) {
             reporter.reportError(node->args[i]->line, node->args[i]->column,
                 "Argument " + std::to_string(i + 1) + " of function '" + node->callee +
-                "': type mismatch, expected '" + paramT->toString() + "', got '" + argT->toString() + "'",
-                "Use a value compatible with parameter type '" + paramT->toString() + "' for argument " + std::to_string(i + 1) + ".");
+                "': type mismatch, expected '" + paramT->toString() + "', got '" + argT->toString() + "'");
             invalidArgument = true;
         }
     }

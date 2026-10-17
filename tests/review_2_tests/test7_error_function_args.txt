@@ -1,0 +1,10 @@
+// 75%: two errors, one incorrect argument count and one incorrect type.
+int add(int left, int right) {
+    return left + right;
+}
+
+int main() {
+    int tooFew = add(1);
+    int wrongType = add(true, 2);
+    return 0;
+}

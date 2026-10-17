@@ -1,6 +1,5 @@
 #include "Parser.hpp"
 
-#include <stdexcept>
 #include <utility>
 
 Parser::Parser(std::vector<Token> inputTokens, ErrorReporter& reporter)
@@ -51,19 +50,19 @@ bool Parser::match(std::initializer_list<TokenType> types) {
     return false;
 }
 
-[[noreturn]] void Parser::fail(const Token& token, const std::string& message,
-                             const std::string& correction) {
+[[noreturn]] void Parser::fail(const Token& token, const std::string& message) {
     const std::string actual = token.type == TokenType::TOK_EOF
         ? "end of file" : "'" + token.text + "'";
+    const std::string reason = token.type == TokenType::LBRACKET
+        ? "Arrays are outside the 75% scope; final sources are in later/" : message;
     reporter.reportError(token.line, token.column,
-                         message + " (got " + actual + ")", correction);
+                         reason + " (got " + actual + ")");
     throw ParseError{};
 }
 
-Token Parser::consume(TokenType type, const std::string& message,
-                      const std::string& correction) {
+Token Parser::consume(TokenType type, const std::string& message) {
     if (check(type)) return advance();
-    fail(peek(), message, correction);
+    fail(peek(), message);
 }
 
 void Parser::synchronize(std::size_t failedStart, bool inBlock) {
@@ -124,8 +123,7 @@ TypePtr Parser::parseType() {
     if (match(TokenType::KEYWORD_BOOL)) return Type::getBool();
     if (match(TokenType::KEYWORD_CHAR)) return Type::getChar();
     if (match(TokenType::KEYWORD_VOID)) return Type::getVoid();
-    fail(peek(), "Expected type specifier (int, float, bool, char, void)",
-         "Give each declaration or parameter an explicit type.");
+    fail(peek(), "Expected type specifier (int, float, bool, char, void)");
 }
 
 std::unique_ptr<ProgramNode> Parser::parseProgram() {
@@ -143,13 +141,11 @@ std::unique_ptr<ProgramNode> Parser::parseProgram() {
 
 std::unique_ptr<ASTNode> Parser::parseTopLevelDecl() {
     if (!isTypeStart(peek().type)) {
-        fail(peek(), "Expected top-level declaration (variable or function)",
-             "Place executable statements inside a function body.");
+        fail(peek(), "Expected top-level declaration (variable or function)");
     }
 
     TypePtr type = parseType();
-    const Token name = consume(TokenType::IDENTIFIER, "Expected identifier after type",
-                               "Add a variable or function name after the type.");
+    const Token name = consume(TokenType::IDENTIFIER, "Expected identifier after type");
     if (check(TokenType::LPAREN)) return parseFunctionDecl(type, name);
     return parseVarDecl(type, name);
 }
@@ -158,11 +154,9 @@ std::unique_ptr<FunctionDeclNode> Parser::parseFunctionDecl(TypePtr returnType,
                                                           const Token& name) {
     consume(TokenType::LPAREN, "Expected '(' after function name");
     auto parameters = parseParamList();
-    consume(TokenType::RPAREN, "Expected ')' after parameter list",
-            "Close the parameter list with ')'.");
+    consume(TokenType::RPAREN, "Expected ')' after parameter list");
     if (!check(TokenType::LBRACE)) {
-        fail(peek(), "Expected '{' to begin function body",
-             "Provide a function definition with a body in braces; prototypes are unsupported.");
+        fail(peek(), "Expected '{' to begin function body");
     }
     auto body = parseBlock();
     return std::make_unique<FunctionDeclNode>(name.line, name.column, returnType,
@@ -176,69 +170,26 @@ std::vector<ParamNode> Parser::parseParamList() {
     do {
         TypePtr type = parseType();
         if (type->isVoid() && check(TokenType::RPAREN)) {
-            fail(previous(), "Use an empty parameter list for a function with no parameters",
-                 "Write '()' instead of '(void)'.");
+            fail(previous(), "Use an empty parameter list for a function with no parameters");
         }
-        const Token name = consume(TokenType::IDENTIFIER, "Expected parameter name",
-                                   "Write each parameter as a type followed by its name.");
-        if (check(TokenType::LBRACKET)) {
-            fail(peek(), "Array parameters are not supported",
-                 "Pass individual scalar values; declare fixed-size arrays inside a function or globally.");
-        }
+        const Token name = consume(TokenType::IDENTIFIER, "Expected parameter name");
         parameters.emplace_back(name.line, name.column, type, name.text);
     } while (match(TokenType::COMMA));
     return parameters;
 }
 
 std::unique_ptr<VarDeclNode> Parser::parseVarDecl(TypePtr type, const Token& name) {
-    bool isArray = false;
-    int arraySize = 0;
-    if (match(TokenType::LBRACKET)) {
-        isArray = true;
-        const Token size = consume(TokenType::INT_LITERAL,
-                                   "Expected integer literal for array size",
-                                   "Use a positive fixed size, for example 'int values[5];'.");
-        std::size_t parsed = 0;
-        try {
-            arraySize = std::stoi(size.text, &parsed);
-        } catch (const std::invalid_argument&) {
-            fail(size, "Invalid array size literal", "Use a positive integer literal.");
-        } catch (const std::out_of_range&) {
-            fail(size, "Array size exceeds the supported integer range",
-                 "Use an array size between 1 and 2147483647.");
-        }
-        if (parsed != size.text.size()) {
-            fail(size, "Invalid array size literal", "Use a positive integer literal.");
-        }
-        if (arraySize <= 0) {
-            fail(size, "Array size must be greater than 0", "Choose a positive fixed array size.");
-        }
-        consume(TokenType::RBRACKET, "Expected ']' after array size",
-                "Close the array size with ']'.");
-        if (check(TokenType::LBRACKET)) {
-            fail(peek(), "Multidimensional arrays are not supported",
-                 "Use one fixed-size array dimension.");
-        }
-    }
-
     std::unique_ptr<ExprNode> initializer;
     if (match(TokenType::ASSIGN)) {
-        if (isArray) {
-            fail(previous(), "Direct array initialization with '=' is not supported",
-                 "Declare the array first, then assign its elements individually.");
-        }
         initializer = parseExpression();
     }
     if (check(TokenType::COMMA)) {
-        fail(peek(), "Multiple variables in one declaration are not supported",
-             "Write one variable declaration per statement.");
+        fail(peek(), "Multiple variables in one declaration are not supported");
     }
-    consume(TokenType::SEMICOLON, "Expected ';' after variable declaration",
-            "End the variable declaration with ';'.");
+    consume(TokenType::SEMICOLON, "Expected ';' after variable declaration");
 
-    TypePtr declaredType = isArray ? Type::makeArray(type, arraySize) : type;
-    return std::make_unique<VarDeclNode>(name.line, name.column, declaredType, name.text,
-                                        std::move(initializer), isArray, arraySize);
+    return std::make_unique<VarDeclNode>(name.line, name.column, type, name.text,
+                                        std::move(initializer));
 }
 
 std::unique_ptr<BlockNode> Parser::parseBlock() {
@@ -252,8 +203,7 @@ std::unique_ptr<BlockNode> Parser::parseBlock() {
             synchronize(start, true);
         }
     }
-    consume(TokenType::RBRACE, "Expected '}' after block",
-            "Close the block opened on line " + std::to_string(opening.line) + " with '}'.");
+    consume(TokenType::RBRACE, "Expected '}' after block");
     return block;
 }
 
@@ -263,24 +213,19 @@ std::unique_ptr<StmtNode> Parser::parseStatement() {
     if (check(TokenType::KEYWORD_WHILE)) return parseWhileStatement();
     if (check(TokenType::KEYWORD_RETURN)) return parseReturnStatement();
     if (check(TokenType::RBRACE)) {
-        fail(peek(), "Expected a statement before '}'",
-             "Provide a statement or an empty block '{}' for the control-flow body.");
+        fail(peek(), "Expected a statement before '}'");
     }
     if (isAtEnd()) {
-        fail(peek(), "Expected a statement before end of file",
-             "Provide a statement or a block after the control-flow condition.");
+        fail(peek(), "Expected a statement before end of file");
     }
     if (check(TokenType::KEYWORD_ELSE)) {
-        fail(peek(), "Unexpected 'else' without a matching 'if'",
-             "Place 'else' immediately after the statement or block belonging to an 'if'.");
+        fail(peek(), "Unexpected 'else' without a matching 'if'");
     }
     if (isTypeStart(peek().type)) {
         TypePtr type = parseType();
-        const Token name = consume(TokenType::IDENTIFIER, "Expected identifier after type",
-                                   "Add a variable name after the type.");
+        const Token name = consume(TokenType::IDENTIFIER, "Expected identifier after type");
         if (check(TokenType::LPAREN)) {
-            fail(peek(), "Nested function declarations are not supported",
-                 "Define functions at the top level, outside other function bodies.");
+            fail(peek(), "Nested function declarations are not supported");
         }
         return parseVarDecl(type, name);
     }
@@ -289,9 +234,9 @@ std::unique_ptr<StmtNode> Parser::parseStatement() {
 
 std::unique_ptr<IfStmtNode> Parser::parseIfStatement() {
     const Token keyword = consume(TokenType::KEYWORD_IF, "Expected 'if'");
-    consume(TokenType::LPAREN, "Expected '(' after 'if'", "Enclose the condition in parentheses.");
+    consume(TokenType::LPAREN, "Expected '(' after 'if'");
     auto condition = parseExpression();
-    consume(TokenType::RPAREN, "Expected ')' after condition", "Close the condition with ')'.");
+    consume(TokenType::RPAREN, "Expected ')' after condition");
     auto thenBranch = parseStatement();
     std::unique_ptr<StmtNode> elseBranch;
     if (match(TokenType::KEYWORD_ELSE)) elseBranch = parseStatement();
@@ -301,9 +246,9 @@ std::unique_ptr<IfStmtNode> Parser::parseIfStatement() {
 
 std::unique_ptr<WhileStmtNode> Parser::parseWhileStatement() {
     const Token keyword = consume(TokenType::KEYWORD_WHILE, "Expected 'while'");
-    consume(TokenType::LPAREN, "Expected '(' after 'while'", "Enclose the condition in parentheses.");
+    consume(TokenType::LPAREN, "Expected '(' after 'while'");
     auto condition = parseExpression();
-    consume(TokenType::RPAREN, "Expected ')' after condition", "Close the condition with ')'.");
+    consume(TokenType::RPAREN, "Expected ')' after condition");
     auto body = parseStatement();
     return std::make_unique<WhileStmtNode>(keyword.line, keyword.column,
                                           std::move(condition), std::move(body));
@@ -313,8 +258,7 @@ std::unique_ptr<ReturnStmtNode> Parser::parseReturnStatement() {
     const Token keyword = consume(TokenType::KEYWORD_RETURN, "Expected 'return'");
     std::unique_ptr<ExprNode> value;
     if (!check(TokenType::SEMICOLON)) value = parseExpression();
-    consume(TokenType::SEMICOLON, "Expected ';' after return statement",
-            "End the return statement with ';'.");
+    consume(TokenType::SEMICOLON, "Expected ';' after return statement");
     return std::make_unique<ReturnStmtNode>(keyword.line, keyword.column, std::move(value));
 }
 
@@ -324,26 +268,19 @@ std::unique_ptr<StmtNode> Parser::parseAssignmentOrExpr() {
     if (match(TokenType::ASSIGN)) {
         const Token assignment = previous();
         auto* variable = dynamic_cast<VariableExprNode*>(expression.get());
-        auto* element = dynamic_cast<ArrayAccessExprNode*>(expression.get());
-        if (!variable && !element) {
-            fail(assignment, "Invalid assignment target",
-                 "Assign to a variable or a single array element, such as 'x = 3;' or 'values[0] = 3;'.");
+        if (!variable) {
+            fail(assignment, "Invalid assignment target");
         }
-        const std::string name = variable ? variable->name : element->name;
-        std::unique_ptr<ExprNode> index;
-        if (element) index = std::move(element->indexExpr);
+        const std::string name = variable->name;
         auto rhs = parseExpression();
         if (check(TokenType::ASSIGN)) {
-            fail(peek(), "Chained assignments are not supported",
-                 "Write each assignment as a separate statement.");
+            fail(peek(), "Chained assignments are not supported");
         }
-        consume(TokenType::SEMICOLON, "Expected ';' after assignment",
-                "End the assignment with ';'.");
+        consume(TokenType::SEMICOLON, "Expected ';' after assignment");
         return std::make_unique<AssignStmtNode>(start.line, start.column, name,
-                                               std::move(index), std::move(rhs));
+                                               std::move(rhs));
     }
-    consume(TokenType::SEMICOLON, "Expected ';' after expression statement",
-            "End the expression statement with ';'.");
+    consume(TokenType::SEMICOLON, "Expected ';' after expression statement");
     return std::make_unique<ExprStmtNode>(start.line, start.column, std::move(expression));
 }
 
@@ -454,30 +391,17 @@ std::unique_ptr<ExprNode> Parser::parsePrimary() {
                     arguments.push_back(parseExpression());
                 } while (match(TokenType::COMMA));
             }
-            consume(TokenType::RPAREN, "Expected ')' after function arguments",
-                    "Close the argument list with ')'.");
+            consume(TokenType::RPAREN, "Expected ')' after function arguments");
             return std::make_unique<CallExprNode>(name.line, name.column, name.text, std::move(arguments));
-        }
-        if (match(TokenType::LBRACKET)) {
-            auto index = parseExpression();
-            consume(TokenType::RBRACKET, "Expected ']' after array index",
-                    "Close the array subscript with ']'.");
-            if (check(TokenType::LBRACKET)) {
-                fail(peek(), "Multidimensional array subscripts are not supported",
-                     "Access a single index of a one-dimensional array.");
-            }
-            return std::make_unique<ArrayAccessExprNode>(name.line, name.column, name.text, std::move(index));
         }
         return std::make_unique<VariableExprNode>(name.line, name.column, name.text);
     }
 
     if (match(TokenType::LPAREN)) {
         auto expression = parseExpression();
-        consume(TokenType::RPAREN, "Expected ')' after expression",
-                "Close the grouped expression with ')'.");
+        consume(TokenType::RPAREN, "Expected ')' after expression");
         return expression;
     }
 
-    fail(peek(), "Expected expression",
-         "Use a literal, variable, function call, or array element, and provide operands for each operator.");
+    fail(peek(), "Expected expression");
 }

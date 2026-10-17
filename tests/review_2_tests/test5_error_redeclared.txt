@@ -1,0 +1,6 @@
+// 75%: one error, because value is declared twice in the same scope.
+int main() {
+    int value = 1;
+    int value = 2;
+    return value;
+}

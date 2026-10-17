@@ -1,0 +1,19 @@
+// Final: forward function calls and mutual recursion.
+int main() {
+    bool result = even(4);
+    return 0;
+}
+
+bool even(int number) {
+    if (number == 0) {
+        return true;
+    }
+    return odd(number - 1);
+}
+
+bool odd(int number) {
+    if (number == 0) {
+        return false;
+    }
+    return even(number - 1);
+}
