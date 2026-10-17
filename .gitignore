@@ -1,5 +1,6 @@
 # Build output and binaries
-build/
+/build/
+*.exe
 *.o
 semantic_analyzer
 
@@ -21,4 +22,3 @@ Thumbs.db
 /lexer_demo
 /lexer_demo.exe
 /semantic_analyzer.exe
-docs/

@@ -24,7 +24,6 @@ public:
     void visit(ExprStmtNode* node) override;
     void visit(LiteralExprNode* node) override;
     void visit(VariableExprNode* node) override;
-    void visit(ArrayAccessExprNode* node) override;
     void visit(BinaryExprNode* node) override;
     void visit(UnaryExprNode* node) override;
     void visit(CallExprNode* node) override;
@@ -38,8 +37,5 @@ private:
     std::string currentFunctionName;
     TypePtr currentFunctionReturnType = nullptr;
 
-    // Two-pass support: Pass 1 collects top-level declarations
-    bool isDeclarationPass = false;
-
-    void registerTopLevelDeclarations(ProgramNode* program);
+    void registerTopLevelDeclaration(ASTNode* declaration);
 };

@@ -3,7 +3,6 @@
 // Accept implementations
 void LiteralExprNode::accept(ASTVisitor* visitor) { visitor->visit(this); }
 void VariableExprNode::accept(ASTVisitor* visitor) { visitor->visit(this); }
-void ArrayAccessExprNode::accept(ASTVisitor* visitor) { visitor->visit(this); }
 void BinaryExprNode::accept(ASTVisitor* visitor) { visitor->visit(this); }
 void UnaryExprNode::accept(ASTVisitor* visitor) { visitor->visit(this); }
 void CallExprNode::accept(ASTVisitor* visitor) { visitor->visit(this); }
@@ -28,31 +27,18 @@ static void printIndent(std::ostream& out, int indent) {
 void LiteralExprNode::print(std::ostream& out, int indent) const {
     printIndent(out, indent);
     out << "LiteralExpr(" << rawValue;
-    if (inferredType) out << " : " << inferredType->toString();
     out << ")\n";
 }
 
 void VariableExprNode::print(std::ostream& out, int indent) const {
     printIndent(out, indent);
     out << "VariableExpr(" << name;
-    if (inferredType) out << " : " << inferredType->toString();
     out << ")\n";
-}
-
-void ArrayAccessExprNode::print(std::ostream& out, int indent) const {
-    printIndent(out, indent);
-    out << "ArrayAccessExpr(" << name;
-    if (inferredType) out << " : " << inferredType->toString();
-    out << ")\n";
-    if (indexExpr) {
-        indexExpr->print(out, indent + 1);
-    }
 }
 
 void BinaryExprNode::print(std::ostream& out, int indent) const {
     printIndent(out, indent);
     out << "BinaryExpr(" << opStr;
-    if (inferredType) out << " : " << inferredType->toString();
     out << ")\n";
     if (lhs) lhs->print(out, indent + 1);
     if (rhs) rhs->print(out, indent + 1);
@@ -61,7 +47,6 @@ void BinaryExprNode::print(std::ostream& out, int indent) const {
 void UnaryExprNode::print(std::ostream& out, int indent) const {
     printIndent(out, indent);
     out << "UnaryExpr(" << opStr;
-    if (inferredType) out << " : " << inferredType->toString();
     out << ")\n";
     if (expr) expr->print(out, indent + 1);
 }
@@ -69,7 +54,6 @@ void UnaryExprNode::print(std::ostream& out, int indent) const {
 void CallExprNode::print(std::ostream& out, int indent) const {
     printIndent(out, indent);
     out << "CallExpr(" << callee;
-    if (inferredType) out << " : " << inferredType->toString();
     out << ")\n";
     for (const auto& arg : args) {
         arg->print(out, indent + 1);
@@ -88,13 +72,7 @@ void VarDeclNode::print(std::ostream& out, int indent) const {
 void AssignStmtNode::print(std::ostream& out, int indent) const {
     printIndent(out, indent);
     out << "AssignStmt(" << varName;
-    if (indexExpr) out << "[...]";
     out << ")\n";
-    if (indexExpr) {
-        printIndent(out, indent + 1);
-        out << "Index:\n";
-        indexExpr->print(out, indent + 2);
-    }
     if (rhs) {
         printIndent(out, indent + 1);
         out << "Value:\n";

@@ -1,0 +1,12 @@
+// Final: both if/else branches return a compatible value.
+int choose(bool first) {
+    if (first) {
+        return 1;
+    } else {
+        return 2;
+    }
+}
+
+int main() {
+    return choose(true);
+}

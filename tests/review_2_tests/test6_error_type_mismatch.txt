@@ -1,0 +1,8 @@
+// 75%: three errors in initialization, assignment, and arithmetic.
+int main() {
+    int count = 2.5;
+    bool ready = true;
+    count = ready;
+    int total = count + ready;
+    return 0;
+}

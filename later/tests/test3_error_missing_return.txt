@@ -1,0 +1,6 @@
+// Final: one error, because the false branch can reach the function end.
+int choose(bool first) {
+    if (first) {
+        return 1;
+    }
+}
