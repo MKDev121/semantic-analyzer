@@ -1,0 +1,9 @@
+// Category D - Test 06: Assignment type mismatch due to inner shadowed variable
+int main() {
+    int x = 10;
+    {
+        bool x = true;
+        x = 25;
+    }
+    return x;
+}

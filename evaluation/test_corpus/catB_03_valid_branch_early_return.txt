@@ -1,0 +1,14 @@
+// Category B - Test 03: Early return in then branch, assignment in else branch
+int computeOrBail(bool bail) {
+    int x;
+    if (bail) {
+        return -1;
+    } else {
+        x = 42;
+    }
+    return x;
+}
+
+int main() {
+    return computeOrBail(false);
+}

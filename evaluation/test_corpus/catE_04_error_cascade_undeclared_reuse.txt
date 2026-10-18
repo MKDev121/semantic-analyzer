@@ -1,0 +1,7 @@
+// Category E - Test 04: Poisoning undeclared variable suppresses cascading errors
+int main() {
+    missing = 10;
+    int a = (missing + 5) * 2;
+    int b = missing - a;
+    return b;
+}

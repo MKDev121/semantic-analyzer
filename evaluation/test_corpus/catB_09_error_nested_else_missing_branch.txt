@@ -1,0 +1,16 @@
+// Category B - Test 09: Nested if-else inside else branch misses one path
+int main() {
+    bool a = false;
+    bool b = false;
+    int x;
+    if (a) {
+        x = 10;
+    } else {
+        if (b) {
+            x = 20;
+        } else {
+            int skip = 0;
+        }
+    }
+    return x;
+}

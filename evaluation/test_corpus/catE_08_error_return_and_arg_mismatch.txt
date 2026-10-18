@@ -1,0 +1,10 @@
+// Category E - Test 08: Function argument mismatch and return type mismatch
+int scale(int v) {
+    return v * 2;
+}
+
+int main() {
+    bool badArg = true;
+    int res = scale(badArg);
+    return 3.14;
+}

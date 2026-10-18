@@ -1,0 +1,9 @@
+// Category D - Test 01: Valid lexical shadowing with distinct types
+int main() {
+    int x = 10;
+    {
+        float x = 2.5;
+        float y = x + 1.5;
+    }
+    return x;
+}

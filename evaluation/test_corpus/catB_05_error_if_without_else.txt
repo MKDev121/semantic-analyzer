@@ -1,0 +1,9 @@
+// Category B - Test 05: if without else leaves variable maybe-uninitialized
+int main() {
+    bool flag = true;
+    int x;
+    if (flag) {
+        x = 10;
+    }
+    return x;
+}

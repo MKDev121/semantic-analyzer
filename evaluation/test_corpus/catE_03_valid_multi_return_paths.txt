@@ -1,0 +1,18 @@
+// Category E - Test 03: Multi-way branches with early return and definite assignment
+int step(int code) {
+    int out;
+    if (code == 0) {
+        return 0;
+    } else {
+        if (code > 0) {
+            out = code + 10;
+        } else {
+            out = -code;
+        }
+    }
+    return out;
+}
+
+int main() {
+    return step(3);
+}

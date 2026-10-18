@@ -1,0 +1,15 @@
+// Category E - Test 02: Recursive function with definite assignment on all paths
+int factorial(int n) {
+    int ans;
+    if (n <= 1) {
+        ans = 1;
+    } else {
+        int sub = factorial(n - 1);
+        ans = n * sub;
+    }
+    return ans;
+}
+
+int main() {
+    return factorial(5);
+}

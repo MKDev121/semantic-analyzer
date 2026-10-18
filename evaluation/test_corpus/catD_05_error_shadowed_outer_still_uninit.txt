@@ -1,0 +1,9 @@
+// Category D - Test 05: Inner shadowed declaration does not initialize outer variable
+int main() {
+    int x;
+    {
+        int x = 50;
+        int innerUse = x + 1;
+    }
+    return x;
+}

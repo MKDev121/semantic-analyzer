@@ -1,0 +1,8 @@
+// Category B - Test 10: Uninitialized variable read inside if condition
+int main() {
+    bool flag;
+    if (flag) {
+        return 1;
+    }
+    return 0;
+}

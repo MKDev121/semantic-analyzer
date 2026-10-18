@@ -1,0 +1,9 @@
+// Category D - Test 02: Nested block assigns to outer uninitialized variable
+int main() {
+    int x;
+    {
+        int factor = 6;
+        x = factor * 7;
+    }
+    return x;
+}

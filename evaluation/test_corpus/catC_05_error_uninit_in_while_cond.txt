@@ -1,0 +1,9 @@
+// Category C - Test 05: Uninitialized variable in while condition
+int main() {
+    int limit;
+    int i = 0;
+    while (i < limit) {
+        i = i + 1;
+    }
+    return i;
+}

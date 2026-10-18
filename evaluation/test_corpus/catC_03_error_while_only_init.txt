@@ -1,0 +1,10 @@
+// Category C - Test 03: Assignment inside while loop may execute zero times
+int main() {
+    bool cond = true;
+    int x;
+    while (cond) {
+        x = 42;
+        cond = false;
+    }
+    return x;
+}

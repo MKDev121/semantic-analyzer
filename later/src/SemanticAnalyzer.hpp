@@ -3,7 +3,10 @@
 #include "AST.hpp"
 #include "SymbolTable.hpp"
 #include "ErrorReporter.hpp"
+#include <map>
+#include <set>
 #include <string>
+#include <utility>
 
 class SemanticAnalyzer : public ASTVisitor {
 public:
@@ -30,6 +33,16 @@ public:
     void visit(CallExprNode* node) override;
 
 private:
+    struct VarInitSnapshot {
+        InitState state = InitState::UNINITIALIZED;
+        std::string reason;
+        int branchLine = 0;
+        bool reportedUninitRead = false;
+    };
+
+    using SymbolKey = std::pair<int, std::string>;
+    using InitEnv = std::map<SymbolKey, VarInitSnapshot>;
+
     SymbolTable& symTab;
     ErrorReporter& reporter;
 
@@ -37,7 +50,21 @@ private:
     bool inFunction = false;
     std::string currentFunctionName;
     TypePtr currentFunctionReturnType = nullptr;
+    int currentFunctionDeclLine = 0;
+
+    // Track poisoned (undeclared) identifiers per scope ID to suppress cascading errors
+    std::map<int, std::set<std::string>> poisonedIdentifiers;
 
     void registerTopLevelDeclarations(ProgramNode* program);
     void registerTopLevelDeclaration(ASTNode* declaration);
+
+    InitEnv captureInitEnv() const;
+    void restoreInitEnv(const InitEnv& env);
+
+    bool isPoisoned(const std::string& name) const;
+    void poisonIdentifier(const std::string& name);
+
+    std::string formatShadowTrace(const Symbol* sym) const;
+    std::string collectExprContextNotes(const ExprNode* expr, bool includeDeclLine = true) const;
+    static std::string exprToString(const ExprNode* expr);
 };

@@ -1,0 +1,11 @@
+// Category C - Test 06: Variable read before assignment inside loop body
+int main() {
+    int acc;
+    int i = 0;
+    while (i < 3) {
+        int temp = acc + i;
+        acc = 10;
+        i = i + 1;
+    }
+    return 0;
+}

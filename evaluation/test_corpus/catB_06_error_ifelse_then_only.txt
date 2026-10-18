@@ -1,0 +1,11 @@
+// Category B - Test 06: Assigned in then branch only, omitted in else
+int main() {
+    bool flag = false;
+    int x;
+    if (flag) {
+        x = 100;
+    } else {
+        int dummy = 0;
+    }
+    return x;
+}

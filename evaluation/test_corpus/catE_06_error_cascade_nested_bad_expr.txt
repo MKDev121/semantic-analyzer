@@ -1,0 +1,7 @@
+// Category E - Test 06: ERROR_TYPE suppresses parent expression and init cascades
+int main() {
+    bool flag = true;
+    int x = (flag + 5) * 10 - 2;
+    int y = x + 1;
+    return y;
+}

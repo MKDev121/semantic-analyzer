@@ -56,6 +56,23 @@ Symbol* SymbolTable::lookupCurrentScope(const std::string& name) {
     return nullptr;
 }
 
+Symbol* SymbolTable::lookupShadowed(const std::string& name) {
+    Scope* s = currentScope;
+    bool foundInner = false;
+    while (s != nullptr) {
+        auto it = s->symbols.find(name);
+        if (it != s->symbols.end()) {
+            if (!foundInner) {
+                foundInner = true;
+            } else {
+                return &(it->second);
+            }
+        }
+        s = s->parent;
+    }
+    return nullptr;
+}
+
 void SymbolTable::printScope(std::ostream& out, const Scope* scope, int indent) const {
     if (!scope) return;
     std::string pad(indent * 2, ' ');

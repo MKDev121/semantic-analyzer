@@ -1,0 +1,11 @@
+// Category C - Test 02: Assigned after while loop before read
+int main() {
+    bool cond = false;
+    int x;
+    while (cond) {
+        x = 5;
+        cond = false;
+    }
+    x = 99;
+    return x;
+}

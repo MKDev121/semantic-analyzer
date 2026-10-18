@@ -1,0 +1,9 @@
+// Category D - Test 07: Expression type mismatch on shadowed identifier
+int main() {
+    int x = 10;
+    {
+        bool x = false;
+        int sum = x + 5;
+    }
+    return x;
+}

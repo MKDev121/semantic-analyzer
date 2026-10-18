@@ -1,0 +1,14 @@
+// Category C - Test 04: Nested while loop assignment may execute zero times
+int main() {
+    bool outer = true;
+    bool inner = true;
+    int x;
+    while (outer) {
+        while (inner) {
+            x = 10;
+            inner = false;
+        }
+        outer = false;
+    }
+    return x;
+}

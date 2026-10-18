@@ -1,0 +1,12 @@
+// Category D - Test 03: Three-level nested scope shadowing
+int main() {
+    int val = 1;
+    {
+        bool val = true;
+        if (val) {
+            int val = 42;
+            int copy = val;
+        }
+    }
+    return val;
+}

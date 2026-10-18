@@ -1,0 +1,13 @@
+// Category D - Test 08: Shadowed variable maybe-uninitialized after partial branch
+int main() {
+    int x = 100;
+    bool flag = true;
+    {
+        int x;
+        if (flag) {
+            x = 10;
+        }
+        int z = x + 1;
+    }
+    return x;
+}

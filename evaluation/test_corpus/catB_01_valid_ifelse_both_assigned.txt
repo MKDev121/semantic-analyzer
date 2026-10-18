@@ -1,0 +1,14 @@
+// Category B - Test 01: Assigned in both then and else branches
+int chooseValue(bool flag) {
+    int x;
+    if (flag) {
+        x = 10;
+    } else {
+        x = 20;
+    }
+    return x;
+}
+
+int main() {
+    return chooseValue(true);
+}

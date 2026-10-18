@@ -1,0 +1,7 @@
+// Category E - Test 07: Invalid assignment still marks variable initialized to prevent cascade
+int main() {
+    int x;
+    x = true;
+    int y = x + 10;
+    return y;
+}

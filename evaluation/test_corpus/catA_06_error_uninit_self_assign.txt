@@ -1,0 +1,6 @@
+// Category A - Test 06: Uninitialized read on RHS of assignment
+int main() {
+    int x;
+    x = x + 10;
+    return x;
+}

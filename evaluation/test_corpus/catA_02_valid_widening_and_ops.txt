@@ -1,0 +1,11 @@
+// Category A - Test 02: Valid scalar types and implicit int-to-float widening
+int main() {
+    int count = 4;
+    float base = 2.5;
+    float total = base * count;
+    bool ok = (total > 5.0) && (count == 4);
+    if (ok) {
+        return 1;
+    }
+    return 0;
+}

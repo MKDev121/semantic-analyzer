@@ -1,0 +1,8 @@
+// Category A - Test 01: Valid straight-line deferred assignment
+int main() {
+    int a = 10;
+    int b = 20;
+    int c;
+    c = a + b;
+    return c;
+}

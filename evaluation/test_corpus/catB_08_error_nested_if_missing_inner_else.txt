@@ -1,0 +1,14 @@
+// Category B - Test 08: Nested if missing inner else branch
+int main() {
+    bool a = true;
+    bool b = false;
+    int x;
+    if (a) {
+        if (b) {
+            x = 1;
+        }
+    } else {
+        x = 2;
+    }
+    return x;
+}

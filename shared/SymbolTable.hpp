@@ -23,6 +23,21 @@ inline std::string symbolKindToString(SymbolKind kind) {
     return "Unknown";
 }
 
+enum class InitState {
+    UNINITIALIZED,
+    MAYBE_INITIALIZED,
+    DEFINITELY_INITIALIZED
+};
+
+inline std::string initStateToString(InitState state) {
+    switch (state) {
+        case InitState::UNINITIALIZED: return "Uninitialized";
+        case InitState::MAYBE_INITIALIZED: return "MaybeInitialized";
+        case InitState::DEFINITELY_INITIALIZED: return "DefinitelyInitialized";
+    }
+    return "Unknown";
+}
+
 struct Symbol {
     std::string name;
     TypePtr type;
@@ -31,10 +46,24 @@ struct Symbol {
     int line;
     int col;
     bool isInitialized;
+    InitState initState;
+    std::string uninitReason;
+    int uninitBranchLine;
+    bool reportedUninitRead;
 
-    Symbol() : name(""), type(nullptr), kind(SymbolKind::VARIABLE), scopeLevel(0), line(0), col(0), isInitialized(false) {}
-    Symbol(std::string name, TypePtr type, SymbolKind kind, int scopeLevel, int line, int col, bool isInitialized = false)
-        : name(std::move(name)), type(std::move(type)), kind(kind), scopeLevel(scopeLevel), line(line), col(col), isInitialized(isInitialized) {}
+    Symbol()
+        : name(""), type(nullptr), kind(SymbolKind::VARIABLE), scopeLevel(0), line(0), col(0),
+          isInitialized(false), initState(InitState::UNINITIALIZED), uninitReason(""),
+          uninitBranchLine(0), reportedUninitRead(false) {}
+
+    Symbol(std::string name, TypePtr type, SymbolKind kind, int scopeLevel, int line, int col,
+           bool isInitialized = false, InitState initState = InitState::UNINITIALIZED,
+           std::string uninitReason = "", int uninitBranchLine = 0)
+        : name(std::move(name)), type(std::move(type)), kind(kind), scopeLevel(scopeLevel),
+          line(line), col(col), isInitialized(isInitialized),
+          initState(isInitialized ? InitState::DEFINITELY_INITIALIZED : initState),
+          uninitReason(std::move(uninitReason)), uninitBranchLine(uninitBranchLine),
+          reportedUninitRead(false) {}
 };
 
 class Scope {
@@ -60,6 +89,7 @@ public:
     bool declare(const Symbol& sym);
     Symbol* lookup(const std::string& name);
     Symbol* lookupCurrentScope(const std::string& name);
+    Symbol* lookupShadowed(const std::string& name);
 
     Scope* getCurrentScope() const { return currentScope; }
     std::shared_ptr<Scope> getRootScope() const { return rootScope; }

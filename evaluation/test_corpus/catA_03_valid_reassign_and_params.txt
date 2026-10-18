@@ -1,0 +1,11 @@
+// Category A - Test 03: Function parameters are definitely initialized
+int compute(int x, int y) {
+    int result;
+    result = x * 2 + y;
+    result = result + 1;
+    return result;
+}
+
+int main() {
+    return compute(3, 4);
+}

@@ -1,0 +1,6 @@
+// Category A - Test 04: Straight-line uninitialized variable read
+int main() {
+    int x;
+    int y = x + 5;
+    return y;
+}

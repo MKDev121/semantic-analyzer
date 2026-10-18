@@ -1,0 +1,7 @@
+// Category A - Test 08: Duplicate declaration and void variable
+int main() {
+    int val = 10;
+    int val = 20;
+    void badVar;
+    return val;
+}

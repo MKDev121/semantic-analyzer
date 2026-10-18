@@ -1,0 +1,8 @@
+// Category E - Test 05: Duplicate uninitialized reads in same basic block suppressed
+int main() {
+    int x;
+    int a = x + 1;
+    int b = x * 2;
+    int c = x - 3;
+    return a + b + c;
+}

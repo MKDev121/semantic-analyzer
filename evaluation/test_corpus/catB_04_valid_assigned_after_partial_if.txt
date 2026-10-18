@@ -1,0 +1,10 @@
+// Category B - Test 04: Partial branch assignment overwritten before read
+int main() {
+    bool flag = true;
+    int x;
+    if (flag) {
+        x = 10;
+    }
+    x = 20;
+    return x;
+}
