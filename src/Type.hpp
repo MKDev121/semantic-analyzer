@@ -10,6 +10,7 @@ enum class TypeKind {
     TYPE_BOOL,
     TYPE_CHAR,
     TYPE_VOID,
+    TYPE_ARRAY,
     TYPE_FUNCTION,
     TYPE_ERROR
 };
@@ -20,6 +21,9 @@ using TypePtr = std::shared_ptr<Type>;
 class Type {
 public:
     TypeKind kind;
+    // For arrays
+    TypePtr elementType;
+    int arraySize;
     // For functions
     TypePtr returnType;
     std::vector<TypePtr> paramTypes;
@@ -32,6 +36,7 @@ public:
     bool isBoolean() const;
     bool isChar() const;
     bool isVoid() const;
+    bool isArray() const;
     bool isFunction() const;
     bool isError() const;
 
@@ -51,5 +56,6 @@ public:
     static TypePtr getChar();
     static TypePtr getVoid();
     static TypePtr getError();
+    static TypePtr makeArray(TypePtr elemType, int size);
     static TypePtr makeFunction(TypePtr retType, std::vector<TypePtr> params);
 };

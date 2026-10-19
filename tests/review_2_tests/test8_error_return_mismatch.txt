@@ -1,4 +1,0 @@
-// 75%: one error, because an int function returns a float value.
-int main() {
-    return 2.5;
-}

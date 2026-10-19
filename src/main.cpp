@@ -16,13 +16,14 @@
 namespace {
 void printUsage(const char* program) {
     std::cout << "Usage: " << program << " [options] [source-file]\n"
-              << "75% review: core lexical, syntax, and semantic analysis.\n"
+              << "Explainable Semantic Analyzer with Scope and Definite-Assignment Checking.\n"
               << "Omit source-file or use '-' to read from standard input.\n\n"
               << "Options:\n"
               << "  --dump-tokens     Show token categories and source positions\n"
               << "  --dump-ast        Show the AST before semantic analysis\n"
+              << "  --dump-typed-ast  Show the AST with inferred expression types\n"
               << "  --dump-symbols    Show declarations in their lexical scopes\n"
-              << "  --all             Show tokens, basic AST, and symbols\n"
+              << "  --all             Show tokens, basic AST, typed AST, and symbols\n"
               << "  -h, --help        Show this help\n"
               << "  --                Treat following arguments as file names\n";
 }
@@ -42,8 +43,12 @@ void printTokens(const std::vector<Token>& tokens) {
 void reportUnknownTokens(const std::vector<Token>& tokens, ErrorReporter& reporter) {
     for (const auto& token : tokens) {
         if (token.type != TokenType::TOK_UNKNOWN) continue;
+        std::string correction = "Remove '" + token.text + "' if accidental, or replace it with a supported token.";
+        if (token.text == "&") correction = "Use '&&' if you intended logical AND.";
+        else if (token.text == "|") correction = "Use '||' if you intended logical OR.";
         reporter.reportError(token.line, token.column,
-                             "Unrecognized character '" + token.text + "' is not a supported token in this language");
+                             "Unrecognized character '" + token.text + "' is not a supported token in this language",
+                             correction);
     }
 }
 } // namespace
@@ -51,7 +56,9 @@ void reportUnknownTokens(const std::vector<Token>& tokens, ErrorReporter& report
 int main(int argc, char* argv[]) {
     bool dumpTokens = false;
     bool dumpAST = false;
+    bool dumpTypedAST = false;
     bool dumpSymbols = false;
+    bool dumpAll = false;
     bool optionsEnded = false;
     bool haveInput = false;
     std::string filename;
@@ -65,9 +72,10 @@ int main(int argc, char* argv[]) {
         if (!optionsEnded && argument == "--") { optionsEnded = true; continue; }
         if (!optionsEnded && argument == "--dump-tokens") { dumpTokens = true; continue; }
         if (!optionsEnded && argument == "--dump-ast") { dumpAST = true; continue; }
+        if (!optionsEnded && argument == "--dump-typed-ast") { dumpTypedAST = true; continue; }
         if (!optionsEnded && argument == "--dump-symbols") { dumpSymbols = true; continue; }
         if (!optionsEnded && argument == "--all") {
-            dumpTokens = dumpAST = dumpSymbols = true;
+            dumpAll = true;
             continue;
         }
         if (!optionsEnded && argument.size() > 1 && argument.front() == '-') {
@@ -81,6 +89,10 @@ int main(int argc, char* argv[]) {
         }
         haveInput = true;
         filename = argument;
+    }
+
+    if (dumpAll) {
+        dumpTokens = dumpAST = dumpTypedAST = dumpSymbols = true;
     }
 
     std::string source;
@@ -110,7 +122,8 @@ int main(int argc, char* argv[]) {
     // A UTF-8 BOM is file metadata rather than part of a source token.
     if (source.compare(0, 3, "\xEF\xBB\xBF") == 0) source.erase(0, 3);
 
-    std::cout << "75% milestone: core semantic analysis\nInput: " << filename << '\n';
+    std::cout << "Explainable Semantic Analyzer\n"
+              << "Input: " << filename << '\n';
     ErrorReporter reporter;
     reporter.setSource(source);
     reporter.setPhase(DiagnosticPhase::Lexical);
@@ -148,6 +161,10 @@ int main(int argc, char* argv[]) {
         SymbolTable symbols;
         SemanticAnalyzer analyzer(symbols, reporter);
         analyzer.analyze(ast.get());
+        if (dumpTypedAST) {
+            std::cout << "\n=============================== TYPED AST ===============================\n";
+            ast->print(std::cout);
+        }
         if (dumpSymbols) {
             std::cout << '\n';
             symbols.printHierarchy(std::cout);

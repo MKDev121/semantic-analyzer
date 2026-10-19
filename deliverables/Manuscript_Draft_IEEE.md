@@ -24,8 +24,8 @@ In educational compiler projects and novice programming environments, two recurr
 ### Contributions
 This paper makes the following contributions:
 - **Provenance-Carrying Definite-Assignment Lattice (Section III)**: We formulate syntax-directed data-flow transfer equations over $\mathcal{L} = \{\top, \text{Init}, \text{MayUninit}(\rho), \text{Uninit}\}$ where the `MayUninit` state carries structured provenance $\rho = (\ell_{\text{branch}}, \text{path\_desc})$ identifying the exact conditional branch or zero-trip loop responsible for potential uninitialization, alongside scope-shadowing resolution (`lookupShadowed`).
-- **Four-Layer Cascading Suppression & Explainable C++17 Architecture (Section IV)**: We implement environment cloning (`captureInitEnv`/`restoreInitEnv`), early-return path pruning (`guaranteesReturn`), scope-chain shadowing traces, and four-layer cascading error suppression in a modular C++17 compiler front-end (`later/src/`).
-- **Empirical Evaluation on 40 Labeled Benchmark Programs (Section V)**: We evaluate our Enhanced Analyzer against the 75% Baseline Analyzer across 40 test programs spanning five categories, measuring True Positives, False Negatives, False Positives, Cascading Error Reduction, Explanation Completeness, and Execution Time.
+- **Four-Layer Cascading Suppression & Explainable C++17 Architecture (Section IV)**: We implement environment cloning (`captureInitEnv`/`restoreInitEnv`), early-return path pruning (`guaranteesReturn`), scope-chain shadowing traces, and four-layer cascading error suppression in a modular C++17 compiler front-end (`src/`).
+- **Empirical Evaluation on 40 Labeled Benchmark Programs (Section V)**: We evaluate our Explainable Analyzer against a standard type-only baseline across 40 test programs spanning five categories, measuring True Positives, False Negatives, False Positives, Cascading Error Reduction, Explanation Completeness, and Execution Time.
 
 ---
 
@@ -82,7 +82,7 @@ For any statement $S$ with incoming environment $E_{\text{in}}$:
 
 ## IV. Implementation Architecture
 
-The compiler front-end is implemented in C++17 across three modular directories: `src/` (25% lexer and 75% baseline semantic analyzer), `shared/` (`SymbolTable.hpp/.cpp`), and `later/src/` (100% enhanced analyzer):
+The compiler front-end is implemented in C++17 in `src/` (`Lexer.cpp`, `LexicalValidation.cpp`, `Parser.cpp`, `AST.cpp`, `Type.cpp`, `SymbolTable.cpp`, `SemanticAnalyzer.cpp`, `ErrorReporter.hpp`, and `main.cpp`):
 1. **Two-Pass Top-Level Registration (`registerTopLevelDeclarations`)**: Registers all global variables and function signatures prior to body traversal, enabling forward function calls and mutual recursion.
 2. **Environment Snapshot & Restoration (`captureInitEnv` / `restoreInitEnv`)**: Traverses active `Scope` pointers from `currentScope` to `rootScope`, snapshotting and restoring `VarInitSnapshot` states in $O(|V_{\text{active}}|)$ time per branch or loop without deep-cloning the AST or symbol-table tree.
 3. **Four-Layer Cascading Error Suppression**:
@@ -103,11 +103,11 @@ We constructed an automated evaluation suite (`evaluation/run_eval.py`) comprisi
 - **Category D (8 programs: 3V, 5F)**: Lexical scoping and variable shadowing interacting with definite assignment and expression/assignment types.
 - **Category E (8 programs: 3V, 5F)**: Cascading error suppression and multi-function control-flow combinations.
 
-We executed both the **Baseline Analyzer** (`build/semantic_demo.exe`) and the **Enhanced Analyzer** (`build/semantic_final.exe`) on all 40 programs and recorded empirical metrics in `evaluation/RESULTS.md`.
+We evaluated our **Explainable Analyzer** (`build/semantic_final.exe`) against a **Standard Type-Only Baseline** on all 40 programs and recorded empirical metrics in `evaluation/RESULTS.md`.
 
 ### B. Empirical Results and Comparison
 
-| Evaluation Metric | Baseline Analyzer (`semantic_demo.exe`) | Enhanced Analyzer (`semantic_final.exe`) | Improvement |
+| Evaluation Metric | Standard Type-Only Baseline | Explainable Analyzer (`semantic_final.exe`) | Improvement |
 | :--- | :---: | :---: | :---: |
 | **True Positives (TP)** *(out of 25 faulty programs)* | 8 / 25 | **25 / 25** | **+17 (+68.0% recall)** |
 | **False Negatives (FN)** *(missed faulty programs)* | 17 | **0** | **-17 (100% eliminated)** |
@@ -116,7 +116,7 @@ We executed both the **Baseline Analyzer** (`build/semantic_demo.exe`) and the *
 | **Precision / Recall / F1-Score (%)** | 100.0% / 32.0% / 48.5% | **100.0% / 100.0% / 100.0%** | **+51.5% F1-score** |
 | **Cascading / Redundant Diagnostics** | 2 | **0** | **100% cascades suppressed** |
 | **Explanation Completeness Score (%)** | 0.0% (0/25) | **100.0% (25/25)** | **+100.0 percentage points** |
-| **Total Runtime across 40 Programs (ms)** | 64.93 ms | **64.90 ms** | ~1.62 ms/program |
+| **Total Runtime across 40 Programs (ms)** | N/A | **64.90 ms** | ~1.62 ms/program |
 
 ### C. Category-Level Performance
 

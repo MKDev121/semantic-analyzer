@@ -30,8 +30,10 @@ private:
     bool check(TokenType type) const;
     bool match(TokenType type);
     bool match(std::initializer_list<TokenType> types);
-    Token consume(TokenType type, const std::string& message);
-    [[noreturn]] void fail(const Token& token, const std::string& message);
+    Token consume(TokenType type, const std::string& message,
+                  const std::string& correction = "");
+    [[noreturn]] void fail(const Token& token, const std::string& message,
+                           const std::string& correction = "");
     void synchronize(std::size_t failedStart, bool inBlock);
 
     std::unique_ptr<ASTNode> parseTopLevelDecl();

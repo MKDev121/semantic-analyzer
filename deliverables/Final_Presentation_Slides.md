@@ -7,12 +7,12 @@
 ## Slide 1: Title & Project Overview
 - **Title**: Explainable Semantic Analysis with Scope and Definite-Assignment Checking
 - **Subtitle**: A C++17 Compiler Front-End with Flow-Sensitive Initialization Lattices, Shadowing Traces, and Cascading Suppression
-- **Progression Across Milestones**:
-  - **Review I (25%)**: Lexical Analyzer (`build/review_1.exe`) — Token recognition, coordinates, lexical validation.
-  - **Review II (75%)**: Core Semantic Analyzer (`build/semantic_demo.exe`) — Recursive-descent parser, AST, lexical scopes, scalar/function type checking.
-  - **Final Review (100%)**: Explainable Flow-Aware Semantic Analyzer (`build/semantic_final.exe`) — Flow-sensitive definite assignment, branch/loop merging, lexical shadowing traces, 1D arrays, forward/mutual recursion, return-path checking, and 40-program empirical benchmark.
+- **Core Capabilities (`src/` $\rightarrow$ `build/semantic_final.exe`)**:
+  - **Lexical & Syntax Analysis**: Token classification, source coordinates, pre-parse lexical validation, and recursive-descent AST construction with panic-mode recovery.
+  - **Scoped Type & Signature Checking**: Lexical scope hierarchy, bidirectional scalar and 1D array type checking, forward/mutual recursion, and return-path verification.
+  - **Explainable Flow-Aware Definite Assignment**: 4-point initialization lattice (`DEFINITELY_INITIALIZED`, `MAYBE_INITIALIZED`, `UNINITIALIZED`, $\top$), branch/loop merging, lexical shadowing traces, cascading suppression, and 40-program empirical benchmark.
 
-> **Speaker Notes**: Welcome the panel. Highlight that our 100% submission completes every deferred milestone item from Review II—specifically flow-aware uninitialized variable detection, explainable scope/branch diagnostics, and a 40-program automated empirical evaluation comparing the 75% baseline against the 100% enhanced analyzer.
+> **Speaker Notes**: Welcome the panel. Present our unified 100% C++17 compiler front-end combining lexical/syntax validation, scoped type checking, flow-aware definite-assignment analysis, explainable scope/branch diagnostics, and a 40-program automated empirical evaluation.
 
 ---
 
@@ -46,7 +46,7 @@
   - Two-pass top-level registration supports **forward function calls** and **mutual recursion**.
   - Non-void functions must guarantee a return across all structural paths (`guaranteesReturn`).
 
-> **Speaker Notes**: Briefly summarize the language grammar and static type rules implemented in `later/src/Parser.cpp` and `later/src/Type.cpp`.
+> **Speaker Notes**: Briefly summarize the language grammar and static type rules implemented in `src/Parser.cpp` and `src/Type.cpp`.
 
 ---
 
@@ -61,7 +61,7 @@
   - **`while (c) S_body`**:
     - Because a `while` loop may execute **zero times**, $\text{Uninit}_{\text{pre}} \text{ with } \text{Init}_{\text{body}} \implies \text{MayUninit}(\text{``while loop on line }\ell\text{ may execute zero times''})$.
 
-> **Speaker Notes**: Explain the mathematical heart of Phase 2: our 4-element lattice and why `while` loops and one-sided `if` statements merge to `MAYBE_INITIALIZED` while two-sided `if-else` statements merge to `DEFINITELY_INITIALIZED`.
+> **Speaker Notes**: Explain the mathematical heart of our analyzer: the 4-element lattice and why `while` loops and one-sided `if` statements merge to `MAYBE_INITIALIZED` while two-sided `if-else` statements merge to `DEFINITELY_INITIALIZED`.
 
 ---
 
@@ -81,19 +81,19 @@ flowchart LR
   3. `--dump-typed-ast`: Type-annotated AST after bottom-up synthesis.
   4. `--dump-symbols`: Hierarchical lexical scope table (`Global` $\rightarrow$ `Function` $\rightarrow$ `Block@L...`).
 
-> **Speaker Notes**: Show how `later/src/main_3.cpp` orchestrates lexical validation, tokenization, parsing, two-pass semantic/flow analysis, and the four diagnostic views.
+> **Speaker Notes**: Show how `src/main.cpp` orchestrates lexical validation, tokenization, parsing, two-pass semantic/flow analysis, and the four diagnostic views.
 
 ---
 
-## Slide 7: Implementation Deep Dive (`shared/` & `later/src/`)
-- **Symbol Table Extensions (`shared/SymbolTable.hpp/.cpp`)**:
+## Slide 7: Implementation Deep Dive (`src/`)
+- **Symbol Table Extensions (`src/SymbolTable.hpp/.cpp`)**:
   - `Symbol` stores `InitState initState`, `std::string uninitReason`, `int uninitBranchLine`, and `bool reportedUninitRead`.
   - `SymbolTable::lookupShadowed(name)` traverses enclosing scopes beyond the innermost match to detect shadowed declarations.
-- **Environment Cloning (`later/src/SemanticAnalyzer.cpp`)**:
+- **Environment Cloning (`src/SemanticAnalyzer.cpp`)**:
   - `captureInitEnv()` and `restoreInitEnv()` snapshot active symbols keyed by `(scope->id, sym.name)`.
   - Self-referential initializers (`int x = x + 1;`) and assignments (`x = x + 10;`) evaluate the RHS *before* promoting `x` to `DEFINITELY_INITIALIZED`.
 
-> **Speaker Notes**: Highlight the C++17 data structures in `shared/SymbolTable.hpp` and `later/src/SemanticAnalyzer.cpp`, especially how keying by `(scope->id, sym.name)` keeps shadowed variables completely independent.
+> **Speaker Notes**: Highlight the C++17 data structures in `src/SymbolTable.hpp` and `src/SemanticAnalyzer.cpp`, especially how keying by `(scope->id, sym.name)` keeps shadowed variables completely independent.
 
 ---
 
@@ -109,8 +109,8 @@ int main() {
     return x; // Line 8
 }
 ```
-- **Baseline (`semantic_demo.exe`)**: `0 errors` *(False Negative — bug missed!)*
-- **Enhanced (`semantic_final.exe`)**:
+- **Standard Type-Only Baseline**: `0 errors` *(False Negative — bug missed!)*
+- **Explainable Analyzer (`semantic_final.exe`)**:
 ```text
 [SEMANTIC ERROR] line 8, col 12
     return x;
@@ -119,7 +119,7 @@ Reason: Variable 'x' (declared on line 4) may be uninitialized here (used on lin
 Possible correction: Initialize 'x' at its declaration on line 4 or ensure all control-flow paths assign a 'int' value before line 8.
 ```
 
-> **Speaker Notes**: Contrast the Baseline output with our Enhanced output. When `else { x = 20; }` is added (`catB_01`), the Enhanced Analyzer merges both branches to `DEFINITELY_INITIALIZED` and passes with 0 errors!
+> **Speaker Notes**: Contrast a standard type-only baseline with our Explainable Analyzer output. When `else { x = 20; }` is added (`catB_01`), the Explainable Analyzer merges both branches to `DEFINITELY_INITIALIZED` and passes with 0 errors!
 
 ---
 
@@ -136,7 +136,7 @@ int main() {
     return x; // Line 9
 }
 ```
-- **Enhanced (`semantic_final.exe`) Output**:
+- **Explainable Analyzer (`semantic_final.exe`) Output**:
 ```text
 [SEMANTIC ERROR] line 9, col 12
     return x;
@@ -161,7 +161,7 @@ int main() {
     return x;
 }
 ```
-- **Enhanced (`semantic_final.exe`) Output**:
+- **Explainable Analyzer (`semantic_final.exe`) Output**:
 ```text
 [SEMANTIC ERROR] line 6, col 9
         x = 25;
@@ -176,7 +176,7 @@ Possible correction: Assign a value compatible with 'bool'; only int-to-float wi
 
 ## Slide 11: Four-Layer Cascading Error Suppression
 1. **`TYPE_ERROR` Expression Poisoning**: `(flag + 5) * 10 - 2` (`catE_06`) emits **1 error** on `flag + 5` and suppresses secondary errors on `* 10` and `- 2`.
-2. **Scope-Aware Undeclared Poisoning (`poisonedIdentifiers`)**: Reusing an undeclared variable `missing` 3 times (`catE_04`) emits **1 error** (vs. **3 errors** in Baseline).
+2. **Scope-Aware Undeclared Poisoning (`poisonedIdentifiers`)**: Reusing an undeclared variable `missing` 3 times (`catE_04`) emits **1 error** (vs. **3 errors** without poisoning).
 3. **Basic-Block Uninitialized Deduplication (`reportedUninitRead`)**: Reading uninitialized `x` across 3 statements in the same block (`catE_05`) emits **1 error** on the first read and suppresses duplicate warnings.
 4. **Post-Error Initialization Promotion**: An ill-typed assignment `x = true;` (`catE_07`) reports the type mismatch once and marks `x` initialized so downstream reads do not trigger false uninitialized cascades.
 
@@ -187,7 +187,7 @@ Possible correction: Assign a value compatible with 'bool'; only int-to-float wi
 ## Slide 12: Automated Evaluation Benchmark (40 Test Programs)
 - **Automated Harness (`evaluation/run_eval.py` $\rightarrow$ `evaluation/RESULTS.md`)**:
 
-| Metric | Baseline (`semantic_demo.exe`) | Enhanced (`semantic_final.exe`) | Improvement |
+| Metric | Standard Type-Only Baseline | Explainable Analyzer (`semantic_final.exe`) | Improvement |
 | :--- | :---: | :---: | :---: |
 | **True Positives (TP / 25 Faulty)** | 8 / 25 (32.0%) | **25 / 25 (100.0%)** | **+17 (+68.0% recall)** |
 | **False Negatives (Missed Bugs)** | 17 | **0** | **-17 (100% eliminated)** |
@@ -196,7 +196,7 @@ Possible correction: Assign a value compatible with 'bool'; only int-to-float wi
 | **F1-Score (%)** | 48.5% | **100.0%** | **+51.5 percentage points** |
 | **Cascading / Extra Diagnostics** | 2 | **0** | **100% cascades suppressed** |
 | **Explanation Completeness Score** | 0.0% (0/25) | **100.0% (25/25)** | **+100.0 percentage points** |
-| **Total Runtime (40 Programs)** | 64.93 ms | **64.90 ms** | ~1.62 ms / program |
+| **Total Runtime (40 Programs)** | N/A | **64.90 ms** | ~1.62 ms / program |
 
 > **Speaker Notes**: Present the empirical numbers from `evaluation/RESULTS.md`. Highlight the jump from 32% recall to 100% recall, 0 false positives (avoiding 11 naive-check false alarms), 0 cascading errors, and 100% explanation completeness.
 
@@ -205,7 +205,7 @@ Possible correction: Assign a value compatible with 'bool'; only int-to-float wi
 ## Slide 13: Live Demonstration Commands
 Run directly from the project root:
 ```bash
-# 1. Build all milestones (25%, 75% baseline, 100% enhanced)
+# 1. Build the unified semantic analyzer
 ./scripts/build.sh
 
 # 2. Run the 40-program automated benchmark evaluation

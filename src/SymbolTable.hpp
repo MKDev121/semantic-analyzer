@@ -50,11 +50,12 @@ struct Symbol {
     std::string uninitReason;
     int uninitBranchLine;
     bool reportedUninitRead;
+    int shadowedByLine;
 
     Symbol()
         : name(""), type(nullptr), kind(SymbolKind::VARIABLE), scopeLevel(0), line(0), col(0),
           isInitialized(false), initState(InitState::UNINITIALIZED), uninitReason(""),
-          uninitBranchLine(0), reportedUninitRead(false) {}
+          uninitBranchLine(0), reportedUninitRead(false), shadowedByLine(0) {}
 
     Symbol(std::string name, TypePtr type, SymbolKind kind, int scopeLevel, int line, int col,
            bool isInitialized = false, InitState initState = InitState::UNINITIALIZED,
@@ -63,7 +64,7 @@ struct Symbol {
           line(line), col(col), isInitialized(isInitialized),
           initState(isInitialized ? InitState::DEFINITELY_INITIALIZED : initState),
           uninitReason(std::move(uninitReason)), uninitBranchLine(uninitBranchLine),
-          reportedUninitRead(false) {}
+          reportedUninitRead(false), shadowedByLine(0) {}
 };
 
 class Scope {

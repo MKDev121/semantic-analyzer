@@ -2,7 +2,7 @@
 #include <sstream>
 #include <utility>
 
-Type::Type(TypeKind kind) : kind(kind) {}
+Type::Type(TypeKind kind) : kind(kind), arraySize(0) {}
 
 bool Type::isNumeric() const {
     return kind == TypeKind::TYPE_INT || kind == TypeKind::TYPE_FLOAT;
@@ -28,6 +28,10 @@ bool Type::isVoid() const {
     return kind == TypeKind::TYPE_VOID;
 }
 
+bool Type::isArray() const {
+    return kind == TypeKind::TYPE_ARRAY;
+}
+
 bool Type::isFunction() const {
     return kind == TypeKind::TYPE_FUNCTION;
 }
@@ -42,6 +46,11 @@ bool Type::equals(const Type& other) const {
     }
     if (kind != other.kind) {
         return false;
+    }
+    if (kind == TypeKind::TYPE_ARRAY) {
+        if (arraySize != other.arraySize) return false;
+        if (!elementType || !other.elementType) return false;
+        return elementType->equals(*other.elementType);
     }
     if (kind == TypeKind::TYPE_FUNCTION) {
         if (!returnType || !other.returnType) return false;
@@ -63,6 +72,10 @@ bool Type::isAssignableTo(const Type& target) const {
     if (isFunction() || target.isFunction() || isVoid() || target.isVoid()) {
         return false;
     }
+    // Arrays must match completely
+    if (isArray() || target.isArray()) {
+        return equals(target);
+    }
     // Exact match for primitives
     if (equals(target)) {
         return true;
@@ -82,6 +95,10 @@ std::string Type::toString() const {
         case TypeKind::TYPE_CHAR: return "char";
         case TypeKind::TYPE_VOID: return "void";
         case TypeKind::TYPE_ERROR: return "<type-error>";
+        case TypeKind::TYPE_ARRAY: {
+            std::string elem = elementType ? elementType->toString() : "unknown";
+            return elem + "[" + std::to_string(arraySize) + "]";
+        }
         case TypeKind::TYPE_FUNCTION: {
             std::ostringstream oss;
             oss << (returnType ? returnType->toString() : "void") << "(";
@@ -124,6 +141,13 @@ TypePtr Type::getVoid() {
 TypePtr Type::getError() {
     static TypePtr instance = std::make_shared<Type>(TypeKind::TYPE_ERROR);
     return instance;
+}
+
+TypePtr Type::makeArray(TypePtr elemType, int size) {
+    auto t = std::make_shared<Type>(TypeKind::TYPE_ARRAY);
+    t->elementType = elemType;
+    t->arraySize = size;
+    return t;
 }
 
 TypePtr Type::makeFunction(TypePtr retType, std::vector<TypePtr> params) {

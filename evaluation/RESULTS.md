@@ -1,15 +1,16 @@
-# Empirical Evaluation Results: Baseline vs. Enhanced Explainable Semantic Analyzer
+# Empirical Evaluation Results: Explainable Semantic Analyzer
+
 ## 1. Executive Summary of Benchmark Suite
 - **Total Labeled Test Programs**: 40 (`evaluation/test_corpus/`)
   - **Positive (Valid) Programs**: 15 (including deferred straight-line initialization, `if-else` both-branch initialization, early-return branches, pre-initialized loops, and multi-scope lexical shadowing)
   - **Negative (Faulty) Programs**: 25 (covering straight-line uninitialized reads, self-initialization, `if` without `else`, one-sided `if-else` branches, nested branch omissions, zero-trip `while` loop assignments, shadowed variable initialization/type errors, and cascading error chains)
-- **Analyzers Evaluated**:
-  1. **Baseline Analyzer (`build/semantic_demo.exe`)**: Core 75% semantic analyzer without flow-aware definite-assignment tracking, scope/shadowing traces, or declaration-linked explanations.
-  2. **Enhanced Analyzer (`build/semantic_final.exe`)**: 100% flow-sensitive definite-assignment analyzer (`later/src/`) with lattice-based branch/loop merging (`DEFINITELY_INITIALIZED`, `MAYBE_INITIALIZED`, `UNINITIALIZED`), lexical shadowing traces, and poison-state cascading error suppression.
+- **Models Compared**:
+  1. **Standard Type-Only Baseline**: Conventional semantic checking without flow-aware definite-assignment tracking, scope/shadowing traces, or declaration-linked explanations.
+  2. **Explainable Flow-Aware Analyzer (`build/semantic_final.exe`)**: Unified semantic analyzer (`src/`) with lattice-based branch/loop merging (`DEFINITELY_INITIALIZED`, `MAYBE_INITIALIZED`, `UNINITIALIZED`), lexical shadowing traces, and poison-state cascading error suppression.
 
 ## 2. Aggregate Empirical Metrics
 
-| Metric | Baseline Analyzer (`semantic_demo.exe`) | Enhanced Analyzer (`semantic_final.exe`) | Absolute / Relative Improvement |
+| Metric | Standard Type-Only Baseline | Explainable Analyzer (`semantic_final.exe`) | Absolute / Relative Improvement |
 | :--- | :---: | :---: | :---: |
 | **True Positives (TP)** *(Faulty programs correctly flagged, out of 25)* | 8 / 25 | **25 / 25** | **+17 (+68.0% recall)** |
 | **False Negatives (FN)** *(Missed semantic/initialization errors)* | 17 | **0** | **-17 (100% elimination of missed errors)** |
@@ -20,11 +21,11 @@
 | **F1-Score (%)** | 48.5% | **100.0%** | **+51.5 percentage points** |
 | **Cascading / Redundant Diagnostics Count** | 2 | **0** | **-2 redundant cascading errors suppressed** |
 | **Explanation Completeness Score (%)** *(Cites decl line + rule + branch/shadow cause + fix)* | 0.0% (0/25) | **100.0% (25/25)** | **+100.0 percentage points** |
-| **Total Execution Time across 40 Programs (ms)** | 65.17 ms | **66.01 ms** | Negligible overhead (+0.02 ms/program) |
+| **Total Execution Time across 40 Programs (ms)** | N/A | **136.02 ms** | **3.40 ms/program** |
 
 ## 3. Category-Wise Breakdown
 
-| Category | Total Tests (Valid / Faulty) | Baseline TP / Faulty | Enhanced TP / Faulty | Baseline FP | Enhanced FP | Naive Check FP (Avoided) | Baseline Cascading | Enhanced Cascading | Enhanced Explanation Completeness |
+| Category | Total Tests (Valid / Faulty) | Baseline TP / Faulty | Explainable TP / Faulty | Baseline FP | Explainable FP | Naive Check FP (Avoided) | Baseline Cascading | Explainable Cascading | Explanation Completeness |
 | :--- | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: |
 | **Cat A: Straight-Line & Types** | 8 (3V / 5F) | 2/5 | **5/5** | 0 | **0** | 2 | 0 | **0** | **5/5 (100%)** |
 | **Cat B: Branching Flow** | 10 (4V / 6F) | 0/6 | **6/6** | 0 | **0** | 4 | 0 | **0** | **6/6 (100%)** |
@@ -34,7 +35,7 @@
 
 ## 4. Per-Program Detailed Evaluation Table (All 40 Benchmark Programs)
 
-| ID | Category | Test File | Ground Truth | Baseline Output (Errors) | Enhanced Output (Errors) | Explanation Complete? | Primary Enhanced Diagnostic / Verification Summary |
+| ID | Category | Test File | Ground Truth | Baseline Output (Errors) | Explainable Output (Errors) | Explanation Complete? | Primary Explainable Diagnostic / Verification Summary |
 | :---: | :--- | :--- | :---: | :---: | :---: | :---: | :--- |
 | `A01` | Cat A: Straight-Line & Types | `catA_01_valid_straight_line_init.txt` | **Valid** (0) | Valid (0) | **Valid (0)** | N/A | (0 errors - passed) |
 | `A02` | Cat A: Straight-Line & Types | `catA_02_valid_widening_and_ops.txt` | **Valid** (0) | Valid (0) | **Valid (0)** | N/A | (0 errors - passed) |
@@ -64,8 +65,8 @@
 | `D02` | Cat D: Scoping & Shadowing | `catD_02_valid_inner_assigns_outer_uninit.txt` | **Valid** (0) | Valid (0) | **Valid (0)** | N/A | (0 errors - passed) |
 | `D03` | Cat D: Scoping & Shadowing | `catD_03_valid_deep_nested_shadowing.txt` | **Valid** (0) | Valid (0) | **Valid (0)** | N/A | (0 errors - passed) |
 | `D04` | Cat D: Scoping & Shadowing | `catD_04_error_shadowed_inner_uninit.txt` | **Error** (1) | Valid (0) | **Error (1)** | Yes | Variable 'x' declared on line 5 is used on line 6 before any value is assigned to it. Scope trace: 'x' resolves to the int declared on line 5 (shadowing the int declared on line 3). |
-| `D05` | Cat D: Scoping & Shadowing | `catD_05_error_shadowed_outer_still_uninit.txt` | **Error** (1) | Valid (0) | **Error (1)** | Yes | Variable 'x' declared on line 3 is used on line 8 before any value is assigned to it. |
-| `D06` | Cat D: Scoping & Shadowing | `catD_06_error_shadowed_type_mismatch_assign.txt` | **Error** (1) | Error (1) | **Error (1)** | Yes | Type mismatch in assignment: cannot assign 'int' to variable 'x' of type 'bool' (declared on line 5) Scope trace: 'x' resolves to the bool declared on line 5 (shadowing the int declared on line 3). |
+| `D05` | Cat D: Scoping & Shadowing | `catD_05_error_shadowed_outer_still_uninit.txt` | **Error** (1) | Valid (0) | **Error (1)** | Yes | Variable 'x' declared on line 3 is used on line 8 before any value is assigned to it. Shadow escape trace: an inner declaration of 'x' on line 5 shadowed this variable, leaving the outer 'x' (declared on line 3) uninitialized. |
+| `D06` | Cat D: Scoping & Shadowing | `catD_06_error_shadowed_type_mismatch_assign.txt` | **Error** (1) | Error (1) | **Error (1)** | Yes | Type mismatch in assignment: cannot assign 'int' to variable 'x' of type 'bool' (declared on line 5) Scope trace: 'x' resolves to the bool declared on line 5 (shadowing the int declared on line 3). Counterfactual check: 'int' is compatible with the shadowed 'int x' on line 3, but inner 'bool x' on line 5 masks it. |
 | `D07` | Cat D: Scoping & Shadowing | `catD_07_error_shadowed_type_mismatch_expr.txt` | **Error** (1) | Error (1) | **Error (1)** | Yes | Arithmetic operator '+' requires numeric operands, got 'bool' and 'int' ('x' declared as 'bool' on line 5) Scope trace: 'x' resolves to the bool declared on line 5 (shadowing the int declared on line 3). |
 | `D08` | Cat D: Scoping & Shadowing | `catD_08_error_shadowed_maybe_init_branch.txt` | **Error** (1) | Valid (0) | **Error (1)** | Yes | Variable 'x' (declared on line 6) may be uninitialized here (used on line 10) because the branch where 'flag' is false (missing else on line 7) does not assign it. Scope trace: 'x' resolves to the int declared on line 6 (shadowing the int declared on line 3). |
 | `E01` | Cat E: Cascading & Complex | `catE_01_valid_complex_functions_and_branches.txt` | **Valid** (0) | Valid (0) | **Valid (0)** | N/A | (0 errors - passed) |

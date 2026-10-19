@@ -1,99 +1,44 @@
-# Architecture of the milestone demos
+# System Architecture
 
-## 25% entry point
-
-`main_1.cpp` reads a source file, calls the original `Lexer`, prints the token
-table, and explains unknown characters. Its source and the three original
-lexer/token files are unchanged. Its build includes only `main_1.cpp` and
-`Lexer.cpp`. `scripts/build.ps1 -Milestone 25` writes `build/review_1.exe`.
-
-## 75% pipeline
+## End-to-End Pipeline
 
 ```text
-src/main_2.cpp: read source and select output views
+src/main.cpp: read source and select output views
   |
   +--> LexicalValidation: literals, comments, source character validation
-  +--> original Lexer: token stream with source positions
+  +--> Lexer: token stream with source positions
   +--> unknown-token diagnostics
   +--> Parser: recursive descent and AST construction
-  +--> SemanticAnalyzer: resolve declarations/names and check expression types
-  +--> token / basic AST / scope views and diagnostic report
+  +--> SemanticAnalyzer (Pass 1): top-level global & function signature registration
+  +--> SemanticAnalyzer (Pass 2): lexical scoping, shadowing traces, bidirectional type checking,
+  |                               flow-aware definite-assignment lattice, and return-path verification
+  +--> token / initial AST / typed AST / scope views and diagnostic report
 ```
 
-The pipeline stops after lexical or syntax errors. Later passes cannot mistake
-an invalid earlier-stage program for a semantic test failure.
-`scripts/build.ps1 -Milestone 75` writes `build/semantic_demo.exe`.
+The pipeline stops after lexical or syntax errors so later passes never mistake an invalid earlier-stage program for a semantic failure. `scripts/build.sh` compiles all translation units in `src/` into `build/semantic_final.exe`.
 
 ## Parser and AST
 
-The parser uses one function for each precedence level. Binary operators are
-left associative. Parenthesized expressions and unary operators recurse.
-AST nodes retain source positions and use `unique_ptr` for child ownership.
-Expression nodes carry an `inferredType`, populated during analysis.
+The parser uses one function per precedence level. Binary operators are left-associative. Parenthesized expressions and unary operators recurse. AST nodes retain 1-indexed source positions (`line`, `col`) and use `std::unique_ptr` for child ownership. Expression nodes carry an `inferredType`, populated during semantic analysis.
 
-On a syntax failure, a private parser exception unwinds the current production.
-Recovery at block or top-level boundaries seeks the next statement/declaration
-while tracking delimiters and guaranteeing progress. EOF is a safe sentinel,
-and block recovery preserves its owning closing brace.
+On a syntax failure, a private parser exception unwinds the current production. Recovery at block or top-level boundaries seeks the next statement or declaration while tracking delimiters and guaranteeing progress.
 
-## Semantic analysis and symbols
+## Semantic Analysis, Definite Assignment, and Symbols
 
-The active 75% analysis visits top-level declarations in source order. A function's
-signature is registered before its body, allowing direct self-recursion and
-calls to previously defined functions. Later globals and function definitions
-are not yet visible. Initializers, function bodies, scalar operators,
-assignments, argument counts/types, conditions, and explicit return values
-are checked.
+Semantic analysis operates in two passes:
+- **Pass 1 (`registerTopLevelDeclarations`)** registers all global variables and function signatures before visiting initializers and function bodies, supporting forward calls and mutual recursion.
+- **Pass 2** validates variable initializers, function bodies, scalar and 1D array types, implicit `int` to `float` widening, function call arguments, boolean control-flow conditions, structural return paths (`guaranteesReturn`), and flow-aware definite assignment.
 
-The preserved final implementation in `later/src/` has its own driver,
-`main_3.cpp`. Its pass 1 registers all global variables and function signatures
-before pass 2 visits initializers and bodies, supporting forward calls and
-mutual recursion. It always uses the extended analyzer.
-`scripts/build.ps1 -Milestone 100` writes `build/semantic_final.exe`.
+The scoped symbol table (`src/SymbolTable.hpp`, `src/SymbolTable.cpp`) is a persistent tree of `Scope` objects with parent pointers and `lookupShadowed()` support. Each symbol tracks its initialization state across the lattice `{UNINITIALIZED, MAYBE_INITIALIZED, DEFINITELY_INITIALIZED}` along with control-flow path provenance (`uninitReason`, `uninitBranchLine`).
 
-The shared symbol table is a tree of scopes with parent lookup. Function parameters
-and top-level function statements share one scope; nested blocks add child
-scopes. Completed scopes remain available for the printed hierarchy.
+`SemanticAnalyzer` snapshots and restores active initialization states (`captureInitEnv` / `restoreInitEnv`) across `if`, `if-else`, early-return branches, and `while` loops, merging states conservatively at join points.
 
-The core types cover primitives, functions, and an error sentinel. The final
-implementation additionally contains fixed-array types, array AST nodes,
-array parsing, and element checks. Only `int` to `float` widening is implicit.
-Expressions that already contain a type error propagate the sentinel to avoid
-duplicate secondary diagnostics.
+## Diagnostics and Cascading Error Suppression
 
-In the final implementation, missing-return analysis examines statement
-structure without evaluating runtime values. This conservative check does not
-prove constant branches or loop termination. The 75% implementation checks
-explicit return types without checking whether all paths return.
-Uninitialized-use, unused-variable, unreachable-code, and array-bounds checks
-remain future work in both implementations.
+`ErrorReporter` (`src/ErrorReporter.hpp`) retains source lines and the current compiler phase. Every diagnostic prints the phase, line/column coordinates, source excerpt, column caret (`^`), detailed `Reason:` (citing declaration lines, branch/loop provenance, and lexical shadowing traces when applicable), and `Possible correction:` guidance.
 
-## Diagnostics and preservation
-
-`ErrorReporter` retains the source lines and the current compiler phase. The
-75% report prints source coordinates, excerpt, caret, and rule explanation.
-The separate final reporter also stores and prints possible correction
-guidance. The final AST printer additionally displays inferred expression
-types, and the final driver's `--all` includes that fourth view.
-The driver prints a phase-specific summary and returns a failure
-status when errors exist. No automatic correction modifies the input.
-
-The active `src/` contains the original 25% files and the reduced 75% source.
-Advanced variants are preserved in `later/src/`, with extended fixtures in
-`later/tests/`. The `tests/review_2_tests/` inputs exercise the core 75% scope.
-AST, Type, Parser, SemanticAnalyzer, ErrorReporter, and LexicalValidation remain
-stage-specific because their supported structures, grammar, or diagnostics
-differ. Both semantic stages share the original lexer/token files and the
-identical SymbolTable implementation from `shared/`.
-
-Each build compiles `shared/SymbolTable.cpp` separately with its stage's
-`Type.hpp`. The 75% include order is `-I src -I shared`; final is
-`-I later/src -I shared -I src`. The shared directory contains no `Type.hpp`,
-so its quoted include selects the intended variant through that order.
-Mixing stage-specific Type/AST/diagnostic headers within an executable would
-produce incompatible definitions. The build script lists each stage's sources
-explicitly and links one driver per executable.
-
-Generated binaries belong in `build/`; tracked scripts, tests, documentation,
-and presentations stay outside it. See [the repository map](REPOSITORY_MAP.md)
-for the full layout.
+Four layers prevent cascading secondary diagnostics:
+1. `Type::getError()` expression propagation.
+2. Scope-aware undeclared identifier poisoning (`poisonedIdentifiers`).
+3. Basic-block uninitialized read deduplication (`reportedUninitRead`).
+4. Post-error initialization promotion on ill-typed initializers and assignments.
